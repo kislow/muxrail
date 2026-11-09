@@ -1,18 +1,20 @@
 # muxrail behaviour spec
 
-This document describes the behaviour of the `muxrail` binary (`cmd/`, `internal/`) and the bash glue in `scripts/`.
+This document describes the behaviour of the `muxrail` binary (`cmd/`, `internal/`) and the `muxrail.tmux` bindings that call it.
 `make e2e` is the acceptance check for the parts only a real tmux client shows.
 
 Target: macOS (Apple silicon), tmux 3.8, Warp terminal, a Nerd Font for logos.
-`scripts/sidebar.sh` (bash glue) starts `muxrail sidebar`.
+`muxrail.tmux` binds the keys and hooks to the binary; `muxrail sidebar <action>` and `muxrail search --pick` hold the glue.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `muxrail sidebar` | Full-screen TUI run by `sidebar.sh render` in a narrow pane at the left of every window. Reads `TMUX_PANE`. |
+| `muxrail sidebar` | Full-screen TUI run in a narrow pane at the left of every window (the pane runs the binary by absolute path). Reads `TMUX_PANE`. |
+| `muxrail sidebar toggle\|ensure\|wake\|remember\|apply <pane-id>` | Control path the tmux keys and hooks call; see Sidebar control. |
 | `muxrail tab <window-id> [plain]` | Prints the tab-bar icon for a window as tmux style codes, no trailing newline. Called from `#(...)` in `window-status-format`. |
 | `muxrail search` | One searchable list of sessions as TSV for fzf: `agent<TAB>id<TAB>cwd<TAB>display`. |
+| `muxrail search --pick` | The `<prefix> h` popup: fzf over that list (found with `exec.LookPath`), then `plan`, then a new tmux window in the session's folder running `$SHELL -ic '<cmd>; exec $SHELL'` (`/bin/sh` when `SHELL` is unset). Cancelling fzf exits quietly. |
 | `muxrail hook [--kind NAME] start\|working\|waiting\|done` | Records the agent's state for `$TMUX_PANE` on the server in `$TMUX`. Silent, always exits 0. |
 | `muxrail plan <agent> <id> <cwd>` | Prints `cwd<TAB>shell command` that resumes the session. |
 | `muxrail --once <cols>` (hidden, for tests) | Prints one sidebar frame for the current session and exits. |
@@ -156,8 +158,20 @@ enabled the mode.
 - **Move** window `src` to the slot of `dst`: `move-window -a` (src above dst) or `-b` (src below), `-d` unless the moved
   window is the active one (otherwise the selection slides to a neighbour), `-s <src window id> -t <dst window id>`,
   chained with `; move-window -r -t <session id>` to close index gaps (`renumber-windows` does not run on moves).
-- Sidebar width is shared across windows by `scripts/sidebar.sh` (`remember`, `apply`, `ensure`, `toggle`); it is
-  bash and already ported. `render` runs `${MUXRAIL_BIN:-muxrail} sidebar`.
+
+## Sidebar control
+
+`muxrail sidebar <action> <pane-id>` runs from the keys and hooks in `muxrail.tmux`:
+
+- `toggle`: sets `@sidebar_on` to 1 and `ensure`s every window of the pane's session, or sets it to 0 and kills every pane marked `@sidebar`.
+- `ensure`: does nothing unless `@sidebar_on` is 1. Under the per-window lock (directory `$TMPDIR/tmux-sidebar-<window_id>.lock`, taken
+  with mkdir; a window that is locked is skipped), a window with no sidebar and at least 90 columns gets one:
+  `split-window -hbdf -l <width>` running `<absolute binary path> sidebar`, marked with the pane option `@sidebar 1`. Any other window has its sidebar
+  sized to the shared width. `MUXRAIL_BIN` overrides the path, which is otherwise `os.Executable`.
+- `wake`: types `ESC [ 9 9 9 9 ~` into the sidebars of the window that came on screen.
+- `remember`: stores the width of the window's sidebar as `@sidebar_width`. tmux names the pane under the mouse during a drag, so the
+  sidebar is looked up in the window.
+- `apply`: `remember`, then resizes every sidebar of the session to `@sidebar_width` (default 34).
 
 ## `tab`
 

@@ -9,13 +9,41 @@ import (
 	"time"
 
 	"github.com/kislow/muxrail/internal/agents"
+	"github.com/kislow/muxrail/internal/picker"
 	"github.com/kislow/muxrail/internal/sessions"
 	"github.com/kislow/muxrail/internal/sidebar"
 	"github.com/kislow/muxrail/internal/ui"
 	"github.com/kislow/muxrail/internal/windows"
 )
 
-func sidebarCmd(ctx context.Context) error { return sidebar.Run(ctx) }
+const sidebarUsage = "usage: muxrail sidebar | sidebar toggle|ensure|wake|remember|apply <pane-id>"
+
+// sidebarCmd runs the sidebar UI in this pane, or with an action and a pane id, the control path the tmux hooks call.
+func sidebarCmd(ctx context.Context, args []string) error {
+	switch len(args) {
+	case 0:
+		return sidebar.Run(ctx)
+	case 2:
+		bin, err := binaryPath()
+		if err != nil {
+			return err
+		}
+		return sidebar.NewController(bin).Do(ctx, args[0], args[1])
+	}
+	return errors.New(sidebarUsage)
+}
+
+// binaryPath is the muxrail that panes and popups run, by absolute path so the tmux server's PATH does not matter.
+func binaryPath() (string, error) {
+	if bin := os.Getenv("MUXRAIL_BIN"); bin != "" {
+		return bin, nil
+	}
+	bin, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("%w: path of the muxrail binary", err)
+	}
+	return bin, nil
+}
 
 func onceCmd(ctx context.Context, args []string) error {
 	if len(args) != 1 {
@@ -56,12 +84,14 @@ func statusCmd(ctx context.Context) error {
 	return err
 }
 
-const searchUsage = "usage: muxrail search [--state FILE] | search cycle agent|sort FILE | search header FILE"
+const searchUsage = "usage: muxrail search [--state FILE | --pick] | search cycle agent|sort FILE | search header FILE"
 
 func searchCmd(ctx context.Context, args []string) error {
 	switch {
 	case len(args) == 0:
 		return printList(ctx, nil, "")
+	case len(args) == 1 && args[0] == "--pick":
+		return pickCmd(ctx)
 	case len(args) == 2 && args[0] == "--state":
 		return printList(ctx, sessions.LoadView(args[1]), args[1])
 	case len(args) == 3 && args[0] == "cycle":
@@ -71,6 +101,18 @@ func searchCmd(ctx context.Context, args []string) error {
 		return err
 	}
 	return errors.New(searchUsage)
+}
+
+func pickCmd(ctx context.Context) error {
+	bin, err := binaryPath()
+	if err != nil {
+		return err
+	}
+	home, err := userHome()
+	if err != nil {
+		return err
+	}
+	return picker.Run(ctx, bin, home)
 }
 
 // printList prints every session as fzf rows, narrowed and ordered by view (nil: newest first). With a state file it

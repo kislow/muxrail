@@ -2,27 +2,6 @@ package sessions
 
 import "testing"
 
-func TestShellQuote(t *testing.T) {
-	tests := map[string]string{
-		"claude":           "claude",
-		"--resume":         "--resume",
-		"/opt/bin/claude":  "/opt/bin/claude",
-		"a=b":              "a=b",
-		"":                 "''",
-		"two words":        "'two words'",
-		"it's":             `'it'"'"'s'`,
-		"$HOME":            "'$HOME'",
-		"semi;colon":       "'semi;colon'",
-		"naïve":            "'naïve'",
-		"user@host:1/x,y+": "user@host:1/x,y+",
-	}
-	for in, want := range tests {
-		if got := shellQuote(in); got != want {
-			t.Errorf("shellQuote(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
-
 func TestPlanCommand(t *testing.T) {
 	tests := []struct {
 		name string

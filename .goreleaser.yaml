@@ -12,11 +12,11 @@ builds:
     flags: [-trimpath]
     ldflags: ["-s -w -X main.version={{ .Version }}"]
 
-# The tmux plugin entry and its scripts ship beside the binary, so an unpacked archive is usable without brew.
+# The tmux plugin entry ships beside the binary, so an unpacked archive is usable without brew.
 archives:
   - formats: [tar.gz]
     name_template: "muxrail_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    files: [muxrail.tmux, scripts/*, README.md]
+    files: [muxrail.tmux, README.md, LICENSE, NOTICE]
 
 checksum:
   name_template: checksums.txt

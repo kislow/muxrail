@@ -3,8 +3,7 @@
 // Package e2e drives the sidebar and the tab bar through a real tmux client: a throwaway tmux server on its own
 // socket and TMPDIR, and a pty-attached client that receives raw SGR mouse events.
 //
-//	MUXRAIL_BIN      the muxrail binary the scripts and the tab bar run (default: muxrail on PATH)
-//	MUXRAIL_SCRIPTS  directory holding sidebar.sh                       (default: ../scripts)
+//	MUXRAIL_BIN      absolute path of the muxrail binary the plugin, the sidebar and the tab bar run
 //	MUXRAIL_TAB_CMD  command printing a window's tab icon for a window id and an optional `plain`
 //	                 (default: "$MUXRAIL_BIN tab", or "muxrail tab")
 package e2e
@@ -13,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -52,6 +52,30 @@ func newServer(t *testing.T, name string) *server {
 		_ = os.RemoveAll(dir)
 	})
 	return s
+}
+
+// muxrailBin is the binary under test; the sidebar tests cannot run without it.
+func muxrailBin(t *testing.T) string {
+	t.Helper()
+	bin := os.Getenv("MUXRAIL_BIN")
+	if bin == "" {
+		t.Skip("MUXRAIL_BIN is not set")
+	}
+	abs, err := filepath.Abs(bin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return abs
+}
+
+// pluginPath is the tpm entry point at the repository root.
+func pluginPath(t *testing.T) string {
+	t.Helper()
+	abs, err := filepath.Abs("../muxrail.tmux")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return abs
 }
 
 // privateEnv keeps an enclosing tmux session from leaking in: TMUX would make the client nest or pick another server.

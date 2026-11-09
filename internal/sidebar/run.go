@@ -22,7 +22,7 @@ const (
 	repaintEvery = 5 * time.Second  // forced repaint in case tmux disturbed the pane
 	hiddenEvery  = 10 * time.Second // window data for a sidebar whose window is not on screen
 
-	// wakeSeq is typed into a sidebar's pane by scripts/sidebar.sh when its window comes on screen. No key sends it, and
+	// wakeSeq is typed into a sidebar's pane by Controller.wake when its window comes on screen. No key sends it, and
 	// a sidebar that does not know it ignores it as an unknown escape sequence.
 	wakeSeq = "\x1b[9999~"
 	minWait = 50 * time.Millisecond

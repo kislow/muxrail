@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 )
 
@@ -23,6 +24,8 @@ func TestRunExitCodes(t *testing.T) {
 		{"search takes a state file", []string{"search", "--state"}, 1},
 		{"search cycle needs a state file", []string{"search", "cycle", "agent"}, 1},
 		{"search header needs a state file", []string{"search", "header"}, 1},
+		{"sidebar takes an action and a pane", []string{"sidebar", "toggle"}, 1},
+		{"sidebar knows its actions", []string{"sidebar", "render", "%1"}, 1},
 		{"hook with no arguments still succeeds", []string{"hook"}, 0},
 		{"hook with a bad argument still succeeds", []string{"hook", "--nope", "bogus"}, 0},
 		{"hook outside tmux succeeds", []string{"hook", "working"}, 0},
@@ -35,5 +38,17 @@ func TestRunExitCodes(t *testing.T) {
 				t.Errorf("run(%v) = %d, want %d", tt.args, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestBinaryPath(t *testing.T) {
+	t.Setenv("MUXRAIL_BIN", "/opt/muxrail/bin/muxrail")
+	if got, err := binaryPath(); err != nil || got != "/opt/muxrail/bin/muxrail" {
+		t.Errorf("binaryPath = %q, %v; want MUXRAIL_BIN", got, err)
+	}
+	t.Setenv("MUXRAIL_BIN", "")
+	got, err := binaryPath()
+	if err != nil || !filepath.IsAbs(got) {
+		t.Errorf("binaryPath = %q, %v; want the absolute path of the running binary", got, err)
 	}
 }
