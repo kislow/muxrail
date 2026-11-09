@@ -29,8 +29,8 @@ reading the tab bar. muxrail lists every window and adds agent detail where an a
   of them.
 - **The window order is mine.** Drag a card or press `J`/`K` and the window moves; the tab rail follows.
 - **One look.** The sidebar and the tab rail draw with the terminal's 16 theme colours, so both follow its theme.
-- **Status from its own hooks.** Agent state comes from `muxrail hook`, called from the agent's own hooks (the Claude Code
-  block is under Agent states), not from another tool.
+- **Status from its own hooks.** Agent state comes from `muxrail hook`, called from the agent's own hooks (the blocks for
+  Claude Code, Codex and Cursor are under Agent states), not from another tool.
 
 For an agent dashboard instead, see [tmux-agent-sidebar](https://github.com/hiroppy/tmux-agent-sidebar) (agent panes across
 every session, with notifications, subagent trees and worktree spawn and teardown) or
@@ -79,8 +79,8 @@ gh release download --repo kislow/muxrail --pattern 'muxrail_*_darwin_arm64.tar.
 
 ### Agent states
 
-The state chip, the colours of the rail and `muxrail status` come from hooks that call `muxrail hook`. Add this to
-`~/.claude/settings.json` (merge it into an existing `hooks` object):
+The state chip, the colours of the rail and `muxrail status` come from hooks that call `muxrail hook`. For Claude Code, add
+this to `~/.claude/settings.json` (merge it into an existing `hooks` object):
 
 ```json
 {
@@ -100,6 +100,46 @@ The state chip, the colours of the rail and `muxrail status` come from hooks tha
     "Stop": [
       { "hooks": [{ "type": "command", "command": "muxrail hook done" }] }
     ]
+  }
+}
+```
+
+For Codex, the same events go in `~/.codex/hooks.json`, with `--kind codex` and `PermissionRequest` for waiting. Codex runs a new
+or changed hook only after you trust it with `/hooks`.
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      { "matcher": "startup|resume|clear|fork", "hooks": [{ "type": "command", "command": "muxrail hook --kind codex start" }] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "muxrail hook --kind codex working" }] }
+    ],
+    "PostToolUse": [
+      { "hooks": [{ "type": "command", "command": "muxrail hook --kind codex working" }] }
+    ],
+    "PermissionRequest": [
+      { "hooks": [{ "type": "command", "command": "muxrail hook --kind codex waiting" }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "muxrail hook --kind codex done" }] }
+    ]
+  }
+}
+```
+
+For the Cursor CLI, `~/.cursor/hooks.json`. Cursor has no hook for a permission prompt, so its windows show working and done but
+never waiting. Do not use `preToolUse` here: Cursor blocks the tool when that hook prints no JSON.
+
+```json
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [{ "command": "muxrail hook --kind cursor start" }],
+    "beforeSubmitPrompt": [{ "command": "muxrail hook --kind cursor working" }],
+    "postToolUse": [{ "command": "muxrail hook --kind cursor working" }],
+    "stop": [{ "command": "muxrail hook --kind cursor done" }]
   }
 }
 ```
@@ -225,7 +265,7 @@ and `tmux`, and writes small caches and logs to `$TMPDIR` (`tmux-sidebar-agents.
 - **A sidebar looks stale right after switching windows.** A sidebar whose window is hidden refreshes every 10 seconds and does not animate, to
   keep one process per window cheap; a tmux hook wakes it when its window comes on screen. Update the plugin (`<prefix> U`) so the hook
   exists. A resize wakes it too.
-- **No state chip, grey rail.** The hooks are missing from `~/.claude/settings.json` (see Agent states), or `muxrail` is not on the `PATH` Claude Code starts with. Test one with `TMUX_PANE=%1 muxrail hook working` inside tmux and look for `~/.local/state/muxrail/agents/<socket>/1.json`.
+- **No state chip, grey rail.** The hooks are missing from the agent's hooks file (see Agent states), Codex has not trusted them yet (`/hooks`), or `muxrail` is not on the `PATH` the agent starts with. Test one with `TMUX_PANE=%1 muxrail hook working` inside tmux and look for `~/.local/state/muxrail/agents/<socket>/1.json`.
 - **The sidebar is blank or exits.** Read `$TMPDIR/muxrail-sidebar-error.log`.
 - **A session is missing from search.** Its folder was deleted, it was a headless run, or it is a Cursor IDE chat.
 - **A Codex or Cursor card shows another session's action.** Two sessions of that agent share a folder; the card reads the newest one.
