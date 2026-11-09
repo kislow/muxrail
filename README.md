@@ -16,6 +16,26 @@ Windows that run Claude Code, Codex or Cursor also show what the agent is doing.
 
 Status: working. macOS on Apple silicon is the tested platform. `cmd/` and `internal/` implement [docs/spec.md](docs/spec.md).
 
+## Why muxrail
+
+I run coding agents next to plain shells in one tmux session: Claude Code on one repo, Codex on another, Cursor on a third,
+and shells for logs, AWS and notes in between. The sidebars I tried list agents only, so the shells drop out and I am back to
+reading the tab bar. muxrail lists every window and adds agent detail where an agent runs.
+
+- **It watches, it does not launch.** My agents start from another tool, in their own worktrees. muxrail creates no sessions,
+  worktrees or panes, so it never competes with whatever starts them.
+- **Every agent I use, one view.** Claude Code, Codex and Cursor windows show the logo and the tool call in flight, with a
+  context gauge where the transcript records tokens (Claude Code and Codex). One search finds and resumes a session from any
+  of them.
+- **The window order is mine.** Drag a card or press `J`/`K` and the window moves; the tab rail follows.
+- **One look.** The sidebar and the tab rail draw with the terminal's 16 theme colours, so both follow its theme.
+- **Status from its own hooks.** Agent state comes from `muxrail hook`, called from the agent's own hooks (the Claude Code
+  block is under Agent states), not from another tool.
+
+For an agent dashboard instead, see [tmux-agent-sidebar](https://github.com/hiroppy/tmux-agent-sidebar) (agent panes across
+every session, with notifications, subagent trees and worktree spawn and teardown) or
+[opensessions](https://github.com/Ataraxy-Labs/opensessions) (a session switcher with agent state and an HTTP API for scripts).
+
 ## Requirements
 
 | What | Why |
@@ -209,13 +229,6 @@ and `tmux`, and writes small caches and logs to `$TMPDIR` (`tmux-sidebar-agents.
 - **The sidebar is blank or exits.** Read `$TMPDIR/muxrail-sidebar-error.log`.
 - **A session is missing from search.** Its folder was deleted, it was a headless run, or it is a Cursor IDE chat.
 - **A Codex or Cursor card shows another session's action.** Two sessions of that agent share a folder; the card reads the newest one.
-
-## Alternatives
-
-[tmux-agent-sidebar](https://github.com/hiroppy/tmux-agent-sidebar) (Rust, MIT) is the more established sidebar for Claude Code, Codex and
-OpenCode across every tmux session, with desktop notifications, subagent trees, task progress and worktree spawn and teardown from the
-sidebar. muxrail covers Cursor and shows Gemini's logo, reorders windows by dragging, draws the tab rail, shows a context gauge, and
-has the cross-agent session search with resume.
 
 ## Update and uninstall
 
