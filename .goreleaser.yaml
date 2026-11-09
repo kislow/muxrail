@@ -1,0 +1,29 @@
+# Release binaries: release-please tags vX.Y.Z, publish.yml runs this on the tag.
+version: 2
+project_name: muxrail
+
+builds:
+  - id: muxrail
+    main: ./cmd/muxrail
+    binary: muxrail
+    env: [CGO_ENABLED=0]
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags: ["-s -w -X main.version={{ .Version }}"]
+
+# The tmux plugin entry and its scripts ship beside the binary, so an unpacked archive is usable without brew.
+archives:
+  - formats: [tar.gz]
+    name_template: "muxrail_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files: [muxrail.tmux, scripts/*, README.md]
+
+checksum:
+  name_template: checksums.txt
+
+# release-please already created the release with CHANGELOG.md's notes: keep them and attach the binaries.
+release:
+  mode: keep-existing
+
+changelog:
+  disable: true

@@ -1,0 +1,48 @@
+name: release
+
+# On every push to main, release-please reads the Conventional Commits since the last release and keeps one release PR
+# open (version bump and CHANGELOG.md). Merging it tags vX.Y.Z and creates the GitHub Release, and this workflow
+# dispatches publish.yml at that tag. Dispatch rather than a tag-push trigger because a tag created with GITHUB_TOKEN
+# cannot start other workflows.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-please-main
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v5.0.0
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch publish for the new release
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::release tag '${TAG}' is not vMAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/publish.yml/dispatches" \
+            -d "{\"ref\":\"${TAG}\",\"inputs\":{\"version\":\"${version}\"}}"

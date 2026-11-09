@@ -1,0 +1,74 @@
+name: ci
+
+on:
+  # Release PRs come from github-actions and only bump the changelog and manifest; main's push run tests the merge.
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    paths-ignore: [CHANGELOG.md, .release-please-manifest.json]
+  push:
+    branches: [main]
+  # publish.yml runs the same checks on the release tag before attaching binaries.
+  workflow_call:
+
+permissions:
+  contents: read
+
+# A new push to a PR cancels the run for the commit it replaced. Edits (for the title check) have their own group
+# and never cancel a code run. Main and publish's workflow_call key on the commit and are never cancelled.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}-${{ github.event.action == 'edited' && 'edit' || 'code' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # PRs are squash-merged, so the PR title becomes the one commit on main that release-please reads to choose the
+  # next version and write the changelog.
+  pr-title:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: PR title is a Conventional Commit
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          pattern='^(feat|fix|docs|refactor|perf|test|build|ci|chore|revert|style)(\([a-z0-9-]+\))?!?: .+'
+          if [[ ! "${TITLE}" =~ ${pattern} ]]; then
+            echo "::error::PR title is not a Conventional Commit: ${TITLE}"
+            exit 1
+          fi
+
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+      # go.mod and go.sum must be complete as committed; nothing is fixed up at build time.
+      - run: go mod tidy -diff
+      - run: go mod verify
+      - run: go vet ./...
+      - run: test -z "$(gofmt -l .)"
+      - uses: golangci/golangci-lint-action@v9.3.0
+        with:
+          version: v2.15.0
+          verify: false
+      - run: go test -race -cover ./...
+      - name: muxrail builds for every release target
+        run: |
+          for t in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
+            GOOS=${t%/*} GOARCH=${t#*/} CGO_ENABLED=0 go build -o /dev/null ./cmd/muxrail
+          done
+
+  # A real tmux client with raw mouse events. macOS minutes cost ten times as much on a private repo, so this runs on
+  # main and on release tags, not on every PR push.
+  e2e:
+    if: github.event_name != 'pull_request'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: brew install tmux
+      - run: make e2e
