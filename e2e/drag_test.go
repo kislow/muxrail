@@ -4,8 +4,6 @@ package e2e
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -98,23 +96,10 @@ func needRows(t *testing.T, rows []int, n int) {
 	}
 }
 
-func scriptsDir(t *testing.T) string {
-	t.Helper()
-	dir := os.Getenv("MUXRAIL_SCRIPTS")
-	if dir == "" {
-		dir = "../scripts"
-	}
-	abs, err := filepath.Abs(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return abs
-}
-
 // TestDrag clicks, drags with a live preview, drops, and switches to the compact layout, through a real tmux client
-// with five windows A..E and the sidebar switched on by scripts/sidebar.sh.
+// with five windows A..E and the sidebar switched on by `muxrail sidebar toggle`.
 func TestDrag(t *testing.T) {
-	scripts := scriptsDir(t)
+	bin := muxrailBin(t)
 	s := newServer(t, "drag")
 	view := sidebarView{s}
 	order := func() string {
@@ -124,13 +109,12 @@ func TestDrag(t *testing.T) {
 	pillNumbers := func() []string { p, _ := view.names(); return p }
 	windowNames := func() []string { _, n := view.names(); return n }
 
-	s.start("set -g mouse on\nset -g renumber-windows on\n"+
-		fmt.Sprintf("set-hook -g after-select-window 'run-shell -b \"%s/sidebar.sh ensure #{pane_id}\"'\n", scripts), 140, 44, "A")
+	s.start("set -g mouse on\nset -g renumber-windows on\nrun-shell "+pluginPath(t)+"\n", 140, 44, "A")
 	for _, name := range "BCDE" {
 		s.tm("new-window", "-t", "t:", "-n", string(name), "-d")
 	}
 	s.tm("select-window", "-t", "t:0")
-	s.tm("run-shell", scripts+"/sidebar.sh toggle %0")
+	s.tm("run-shell", bin+" sidebar toggle %0")
 
 	c := s.attach(44, 140)
 	time.Sleep(time.Second)

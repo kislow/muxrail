@@ -44,8 +44,10 @@ run '~/.tmux/plugins/tpm/tpm'
 
 Reload (`tmux source ~/.tmux.conf`) and press `<prefix> I` to let tpm fetch the plugin. Then open a window and press `<prefix> b`.
 
-**Without Homebrew or tpm.** Each release has archives with the binary, `muxrail.tmux` and `scripts/`. Put `muxrail` on the `PATH` that
-tmux starts with, unpack the rest anywhere and add `run-shell /path/to/muxrail.tmux` to `~/.tmux.conf`.
+**Without Homebrew or tpm.** Each release has archives with the binary and `muxrail.tmux`. Put `muxrail` on the `PATH` that
+tmux starts with (or set `MUXRAIL_BIN` to its path), unpack the rest anywhere and add `run-shell /path/to/muxrail.tmux` to `~/.tmux.conf`.
+The plugin only binds the keys and hooks to the binary, so a plugin and a binary of different versions never disagree about what the
+bindings call.
 
 ```bash
 gh release download --repo kislow/muxrail --pattern 'muxrail_*_darwin_arm64.tar.gz'
@@ -158,17 +160,21 @@ All options are tmux user options (`set -g ...`); the sidebar re-reads them ever
 | `@cap_l`, `@cap_r` | empty | end caps of the index pill, for example the Nerd Font glyphs `` and `` for rounded ends |
 | `@sidebar_debug` | `0` | `1` logs raw input to `~/.tmux/sidebar-input.log` |
 
-`MUXRAIL_BIN` (an environment variable, for example `tmux set-environment -g MUXRAIL_BIN /path/to/muxrail`) makes the sidebar and the
-search popup run that binary instead of the one on the `PATH`. The tab and status formats call `muxrail` by name.
+`MUXRAIL_BIN` (an environment variable, for example `tmux set-environment -g MUXRAIL_BIN /path/to/muxrail`) makes `muxrail.tmux` bind the keys and hooks to that binary
+instead of the one on the `PATH`; the sidebar panes and the search popup run the binary by its absolute path. The tab and status
+formats call `muxrail` by name.
 
 ## Commands
 
 ```text
 muxrail sidebar                          run the sidebar UI in the current pane
+muxrail sidebar toggle|ensure|wake|remember|apply <pane-id>
+                                         build, size and wake the sidebars (what the keys and hooks call)
 muxrail tab <window-id> [plain]          the tab-bar icon of a window
 muxrail tab <window-id> rail|rail-current <index>
                                          a window's stop on the tab rail
 muxrail status                           the agents by state, for the status bar
+muxrail search --pick                    pick a session in fzf and resume it in a new window (<prefix> h)
 muxrail search [--state FILE]            sessions as TSV for fzf
 muxrail show <agent> <id> <cwd>          the latest messages of a session (the preview)
 muxrail plan <agent> <id> <cwd>          the command that resumes a session
@@ -186,9 +192,10 @@ and `tmux`, and writes small caches and logs to `$TMPDIR` (`tmux-sidebar-agents.
 
 - **Logos or pill ends show as empty boxes.** The terminal is not using a Nerd Font 3.5+. Select it in the terminal's settings; installing
   the font is not enough. Restart tmux (`tmux kill-server`) afterwards.
-- **`<prefix> h` shows an error or nothing, or the rail tabs are blank.** The binary is older than the plugin. Run `muxrail version`, then
-  `brew upgrade kislow/tap/muxrail` and `<prefix> U` in tmux. The tab and status formats call `muxrail` by name, so it must be on the
-  `PATH` the tmux server started with.
+- **`<prefix> h` shows an error or nothing, or the rail tabs are blank.** The popup stays open on an error: `fzf` missing from the `PATH`
+  shows up there. Otherwise the binary may be older than the plugin: run `muxrail version`, then `brew upgrade kislow/tap/muxrail`. The tab
+  and status formats call `muxrail` by name, so it must be on the `PATH` the tmux server started with. A "binary not found" message when
+  tmux loads the config means the same.
 - **A sidebar looks stale right after switching windows.** A sidebar whose window is hidden refreshes every 10 seconds and does not animate, to
   keep one process per window cheap; a tmux hook wakes it when its window comes on screen. Update the plugin (`<prefix> U`) so the hook
   exists. A resize wakes it too.
@@ -239,7 +246,8 @@ brew update && brew upgrade kislow/tap/muxrail
 ```text
 cmd/muxrail/        entry point and subcommands
 internal/...        tmux wrapper, agent detection, activity, git stats, session index, UI
-scripts/            bash glue: sidebar.sh (toggle, ensure, shared width), popups
+scripts/            release helper (bump-tap.sh)
+muxrail.tmux        tpm entry: binds the keys and hooks to the binary
 e2e/                end-to-end Go tests (build tag `e2e`) through a real tmux client
 docs/spec.md        behaviour spec and acceptance criteria
 ```

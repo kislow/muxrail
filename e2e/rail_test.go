@@ -25,21 +25,13 @@ func TestRailTabs(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	muxrail := os.Getenv("MUXRAIL_BIN")
-	if muxrail == "" {
-		t.Skip("MUXRAIL_BIN is not set")
-	}
-	if err := os.Symlink(muxrail, filepath.Join(bin, "muxrail")); err != nil {
+	if err := os.Symlink(muxrailBin(t), filepath.Join(bin, "muxrail")); err != nil {
 		t.Fatal(err)
 	}
 	s.env = append(s.env, "PATH="+bin+":"+os.Getenv("PATH"))
 
-	plugin, err := filepath.Abs(filepath.Join(scriptsDir(t), "..", "muxrail.tmux"))
-	if err != nil {
-		t.Fatal(err)
-	}
 	s.start("set -g status on\nset -g status-interval 1\nset -g status-left ''\nset -g status-right '#(muxrail status)'\n"+
-		"set -g @muxrail_tabs rail\nrun-shell "+plugin+"\n", 140, 30, "plainwin")
+		"set -g @muxrail_tabs rail\nrun-shell "+pluginPath(t)+"\n", 140, 30, "plainwin")
 	s.tm("new-window", "-t", "t:", "-n", "fakeclaude", "-d", bin+"/claude 300")
 	s.tm("new-window", "-t", "t:", "-n", "fakecodex", "-d", bin+"/codex 300")
 

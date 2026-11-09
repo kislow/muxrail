@@ -14,12 +14,15 @@ const usage = `muxrail: tmux window sidebar and agent session search
 
 usage:
   muxrail sidebar                      run the sidebar UI in the current pane
+  muxrail sidebar toggle|ensure|wake|remember|apply <pane-id>
+                                       build, size and wake the sidebars; called from the tmux hooks and keys
   muxrail tab <window-id> [plain]      print the tab-bar icon for a window
   muxrail tab <window-id> rail|rail-current <index>
                                        print a window's stop on the tab rail: state, index and logo
   muxrail status                       print the agents by state (waiting, working, done) for the status bar
   muxrail hook [--kind NAME] start|working|waiting|done
                                        record an agent's state for its tmux pane; called from agent hooks, never fails
+  muxrail search --pick                pick a session in fzf and resume it in a new tmux window (the popup on <prefix> h)
   muxrail search [--state FILE]        list sessions as TSV for fzf, narrowed and ordered by the state file
   muxrail search cycle agent|sort FILE  advance the agent filter or the sort order saved in FILE
   muxrail search header FILE           print the header line for the state in FILE
@@ -47,7 +50,7 @@ func run(ctx context.Context, args []string) int {
 	var err error
 	switch args[0] {
 	case "sidebar":
-		err = sidebarCmd(ctx)
+		err = sidebarCmd(ctx, args[1:])
 	case "--once":
 		err = onceCmd(ctx, args[1:])
 	case "tab":
