@@ -3,6 +3,8 @@
 A rail of every tmux window, down the side and along the bottom, whether it runs a coding agent or a plain shell.
 Windows that run Claude Code, Codex or Cursor also show what the agent is doing.
 
+![The sidebar and tab rail: Claude Code, Codex and Cursor windows working, waiting and done, next to two plain shells](docs/images/sidebar.png)
+
 - **Sidebar.** One card per window, agent or plain shell, with its folder and git changes. An agent's card adds its logo, its
   state and how long it has been in it, and the task title. Click a card to switch, drag it (with a live preview) or press
   `J`/`K` to reorder.
@@ -112,6 +114,8 @@ Keys are bound in tmux's prefix table, so they follow your prefix (`<prefix>` is
 **Sidebar.** Click a card to switch to its window. Drag a card by its grip to reorder; the cards slide aside as you go. With the sidebar
 focused: `j`/`k` or the arrows move the cursor, `J`/`K` move the selected window down or up, `Enter` switches, `v` toggles a
 one-line-per-window layout. Drag the sidebar's border to resize it; the width is shared by every window.
+
+![The compact layout, one line per window](docs/images/sidebar-compact.png)
 
 **Cards.** The state glyph is `●` working (a spinner while it runs), `◆` waiting for you, `✔` done, `○` unknown, with the time in that
 state. A Claude Code, Codex or Cursor card adds a row with what the agent is doing right now (`✎ Edit rail.go`, `$ go test`,
