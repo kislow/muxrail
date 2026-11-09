@@ -246,4 +246,4 @@ docs/spec.md        behaviour spec and acceptance criteria
 
 ## License
 
-[Apache-2.0](LICENSE)
+Copyright 2026 [kislow](https://github.com/kislow). Licensed under [Apache-2.0](LICENSE).
