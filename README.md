@@ -1,9 +1,11 @@
 # muxrail
 
-A rail of windows down the side of tmux, built for people who run several coding agents at once.
+A rail of every tmux window, down the side and along the bottom, whether it runs a coding agent or a plain shell.
+Windows that run Claude Code, Codex or Cursor also show what the agent is doing.
 
-- **Sidebar.** One card per window with the agent's logo, its state and how long it has been in it, the task title and the git
-  changes. Click a card to switch, drag it (with a live preview) or press `J`/`K` to reorder.
+- **Sidebar.** One card per window, agent or plain shell, with its folder and git changes. An agent's card adds its logo, its
+  state and how long it has been in it, and the task title. Click a card to switch, drag it (with a live preview) or press
+  `J`/`K` to reorder.
 - **Tab rail.** The tab bar drawn as stops on a rail, each coloured by its agent's state, with the agent counts at the right.
 - **What the agent is doing.** A Claude Code, Codex or Cursor card shows the tool call in flight, a permission prompt in yellow,
   and a gauge of how full the context is.
