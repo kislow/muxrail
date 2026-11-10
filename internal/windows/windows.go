@@ -108,19 +108,30 @@ func ordered(byIndex map[int]*Win) []*Win {
 }
 
 // AttachGit fills in Git for each window from the shared git cache.
+//
+// An agent's pane stays in the folder it was started in, so when the transcript says where the session last ran, that
+// folder is the one inspected; run AttachActivity first.
 func AttachGit(ctx context.Context, wins []*Win) error {
 	paths := make([]string, len(wins))
 	for i, w := range wins {
-		paths[i] = w.Path
+		paths[i] = gitPath(w)
 	}
 	stats, err := gitinfo.Stats(ctx, paths)
 	if err != nil {
 		return err
 	}
 	for _, w := range wins {
-		w.Git = stats[w.Path]
+		w.Git = stats[gitPath(w)]
 	}
 	return nil
+}
+
+// gitPath is the folder whose repository a window shows: where its agent last ran, else the pane's folder.
+func gitPath(w *Win) string {
+	if w.Activity != nil && w.Activity.Cwd != "" {
+		return w.Activity.Cwd
+	}
+	return w.Path
 }
 
 // AttachActivity fills in Activity for each agent window from its transcript. A window whose session is not found has

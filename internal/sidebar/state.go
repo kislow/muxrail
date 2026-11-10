@@ -81,11 +81,11 @@ func (s *state) fetch(ctx context.Context, skipHidden bool) (*snapshot, error) {
 	if snap.wins, err = windows.List(ctx, s.sessionID); err != nil {
 		return nil, err
 	}
-	if err := windows.AttachGit(ctx, snap.wins); err != nil {
-		return nil, err
-	}
 	if err := windows.AttachActivity(s.env.Home, snap.wins, time.Now()); err != nil {
 		s.logError(err)
+	}
+	if err := windows.AttachGit(ctx, snap.wins); err != nil { // after the activity: it says where each agent is now
+		return nil, err
 	}
 	return snap, nil
 }

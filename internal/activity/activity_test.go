@@ -16,6 +16,9 @@ const (
 	edit     = `{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Edit","input":{"file_path":"/a/b/rail.go"}}],"usage":{"input_tokens":3,"cache_creation_input_tokens":10,"cache_read_input_tokens":86000}}}`
 	result   = `{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"ok"}]}}`
 	reply    = `{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"done"}],"usage":{"input_tokens":1,"cache_read_input_tokens":90000}}}`
+	inRepo   = `{"type":"user","cwd":"/r/one","message":{"role":"user","content":"look"}}`
+	moved    = `{"type":"assistant","cwd":"/r/two","message":{"role":"assistant","content":[{"type":"text","text":"cd done"}]}}`
+	subMoved = `{"type":"assistant","isSidechain":true,"cwd":"/r/side","message":{"role":"assistant","content":[{"type":"text","text":"x"}]}}`
 	sub      = `{"type":"assistant","isSidechain":true,"message":{"role":"assistant","content":[{"type":"tool_use","name":"Bash","input":{"command":"ls"}}]}}`
 )
 
@@ -33,6 +36,8 @@ func TestParse(t *testing.T) {
 		{"the result hands the turn back", lines(prompt, edit, result), &Info{Action: "thinking", Context: 86013}},
 		{"a finished reply has no action", lines(prompt, edit, result, reply), &Info{Context: 90001}},
 		{"subagent records are skipped", lines(prompt, reply, sub), &Info{Context: 90001}},
+		{"the folder follows the session", lines(inRepo, moved), &Info{Cwd: "/r/two"}},
+		{"a subagent's folder is not the session's", lines(inRepo, subMoved), &Info{Action: "thinking", Cwd: "/r/one"}},
 		{"damaged lines are skipped", lines(prompt, `{not json`, edit), &Info{Action: "✎ Edit rail.go", Pending: true, Context: 86013}},
 	}
 	for _, tt := range tests {
