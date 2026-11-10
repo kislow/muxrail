@@ -49,6 +49,8 @@ type snapshot struct {
 	debug      bool
 	// visible is whether this sidebar's window is the one on screen: a hidden sidebar need not refresh or animate.
 	visible bool
+	// alone is whether the sidebar is the only pane of its window.
+	alone bool
 	// idle marks a read that only asked whether the window is on screen: it carries no windows to apply.
 	idle bool
 }
@@ -59,11 +61,11 @@ type snapshot struct {
 // ps calls were most of its cost.
 func (s *state) fetch(ctx context.Context, skipHidden bool) (*snapshot, error) {
 	v, err := tmux.Values(ctx, s.pane, "@cap_l", "@cap_r", "@sidebar_layout", "@sidebar_debug", "@muxrail_ctx_window",
-		"window_active", "session_attached")
+		"window_active", "session_attached", "window_panes")
 	if err != nil {
 		return nil, err
 	}
-	snap := &snapshot{layout: ui.LayoutTiles, capL: v[0], capR: v[1], debug: v[3] == "1", visible: v[5] == "1" && v[6] != "0"}
+	snap := &snapshot{layout: ui.LayoutTiles, capL: v[0], capR: v[1], debug: v[3] == "1", visible: v[5] == "1" && v[6] != "0", alone: v[7] == "1"}
 	if v[2] == ui.LayoutCompact {
 		snap.layout = ui.LayoutCompact
 	}

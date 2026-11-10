@@ -3,6 +3,8 @@ package sidebar
 import (
 	"bytes"
 	"context"
+	"errors"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -66,8 +68,13 @@ func TestWorking(t *testing.T) {
 
 func stubSession(t *testing.T, layout string) { stubSessionOnScreen(t, layout, "1", "1") }
 
-// stubSessionOnScreen is stubSession with the answers tmux gives for window_active and session_attached.
 func stubSessionOnScreen(t *testing.T, layout, active, attached string) {
+	t.Helper()
+	stubSessionPanes(t, layout, active, attached, "2")
+}
+
+// stubSessionPanes is stubSession with the answers tmux gives for window_active, session_attached and window_panes.
+func stubSessionPanes(t *testing.T, layout, active, attached, panes string) {
 	t.Helper()
 	testutil.IsolatedTmp(t)
 	t.Setenv("TMUX", "")
@@ -76,7 +83,7 @@ func stubSessionOnScreen(t *testing.T, layout, active, attached string) {
 display-message)
   case "$5" in
   '#{session_id}') echo '$1' ;;
-  *) printf '(\037)\037%s\037\037\037%s\037%s\n' '`+layout+`' '`+active+`' '`+attached+`' ;;
+  *) printf '(\037)\037%s\037\037\037%s\037%s\037%s\n' '`+layout+`' '`+active+`' '`+attached+`' '`+panes+`' ;;
   esac ;;
 list-panes)
   if [ "$2" = "-a" ]; then exit 0; fi
@@ -212,5 +219,59 @@ func TestTheWakeSequenceShowsTheSidebarAtOnce(t *testing.T) {
 	if !l.visible || !l.refreshed.IsZero() || l.paint.prev != nil {
 		t.Errorf("visible=%v refreshed zero=%v prev=%v; want visible, due for a fetch, and a full repaint ahead",
 			l.visible, l.refreshed.IsZero(), l.paint.prev)
+	}
+}
+
+func TestFetchSaysWhetherTheSidebarIsAlone(t *testing.T) {
+	tests := []struct {
+		panes string
+		want  bool
+	}{{"1", true}, {"2", false}, {"3", false}}
+	for _, tt := range tests {
+		t.Run(tt.panes+" panes", func(t *testing.T) {
+			stubSessionPanes(t, "tiles", "0", "1", tt.panes) // hidden: the answer must not depend on being on screen
+			s, err := newState(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			snap, err := s.fetch(context.Background(), true)
+			if err != nil || snap.alone != tt.want {
+				t.Errorf("alone = %v, %v; want %v", snap.alone, err, tt.want)
+			}
+		})
+	}
+}
+
+func TestTheSidebarExitsOnlyAfterTwoReadsAlone(t *testing.T) {
+	l := &loop{state: &state{env: &ui.Env{}}, refreshed: time.Now()}
+	read := func(alone bool) { l.finishFetch(fetchResult{snap: &snapshot{alone: alone}}) }
+
+	read(true)
+	if l.alone != 1 || !l.refreshed.IsZero() {
+		t.Errorf("after one read alone = %d, refreshed zero = %v; want 1 and an immediate re-read", l.alone, l.refreshed.IsZero())
+	}
+	read(false)
+	if l.alone != 0 {
+		t.Errorf("a read with another pane left alone = %d, want the count reset", l.alone)
+	}
+	read(true)
+	read(true)
+	if l.alone != 2 {
+		t.Errorf("alone = %d, want 2: the exit condition", l.alone)
+	}
+	l.fetched, l.fetching = make(chan fetchResult, 1), true // no real read may start
+	l.input, l.winch = make(chan string), make(chan os.Signal)
+	l.fetched <- fetchResult{snap: &snapshot{alone: true}}
+	if err := l.iterate(context.Background()); !errors.Is(err, errAlone) {
+		t.Errorf("iterate = %v, want errAlone", err)
+	}
+}
+
+func TestAFailedReadDoesNotCountTowardsLeaving(t *testing.T) {
+	testutil.IsolatedTmp(t)
+	l := &loop{state: &state{}, alone: 1}
+	l.finishFetch(fetchResult{err: errors.New("tmux gone")})
+	if l.alone != 1 {
+		t.Errorf("alone = %d, want an error read to leave the count as it was", l.alone)
 	}
 }
