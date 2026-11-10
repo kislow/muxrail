@@ -45,8 +45,8 @@ func tokens(n int) string {
 }
 
 // gauge is a small bar of how full the context is, coloured by how close compaction is, with the token count. The
-// Unicode set draws it with box-drawing lines, which terminals paint themselves in exactly one cell; ▰▱ are in few
-// fonts, and the fallback glyph is wider than a cell and runs into the token count.
+// Unicode set draws it with block elements (▄ filled, ▁ empty), which terminals paint themselves in exactly one cell; ▰▱
+// are in few fonts, and the fallback glyph is wider than a cell and runs into the token count.
 func gauge(set Icons, used, window int) string {
 	ratio := min(float64(used)/float64(window), 1)
 	filled := min(max(int(ratio*gaugeCells+0.5), 1), gaugeCells)
@@ -57,7 +57,7 @@ func gauge(set Icons, used, window int) string {
 	case ratio >= warnRatio:
 		colour = yellow
 	}
-	full, empty := "━", "─"
+	full, empty := "▄", "▁"
 	if set == IconsNerd {
 		full, empty = "▰", "▱"
 	}

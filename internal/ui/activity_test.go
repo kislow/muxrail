@@ -92,14 +92,14 @@ func TestActivityRowFillsExactlyItsRoom(t *testing.T) {
 			t.Errorf("room %d: row is %d columns, want it to fill the room so the gauge sits at the right edge", room, got)
 		}
 	}
-	if got := plain(activityRow(w, e, 12)); strings.Contains(got, "━") {
+	if got := plain(activityRow(w, e, 12)); strings.Contains(got, "▄") {
 		t.Errorf("a 12 column row has no room for the gauge: %q", got)
 	}
 }
 
 func TestActivityRowShowsTheGaugeAloneWhenIdle(t *testing.T) {
 	got := plain(activityRow(claudeWin("done", &activity.Info{Context: 90_000}), testEnv(), 30))
-	if strings.TrimSpace(got) != "━━─── 90k" || !strings.HasSuffix(got, "90k") {
+	if strings.TrimSpace(got) != "▄▄▁▁▁ 90k" || !strings.HasSuffix(got, "90k") {
 		t.Errorf("row = %q, want the gauge at the right", got)
 	}
 	if got := activityRow(claudeWin("done", nil), testEnv(), 30); got != "" {
@@ -119,10 +119,10 @@ func TestACardWithActivityGainsOneRow(t *testing.T) {
 	assertWidthAtMost(t, 44, e.card(w, "", 44, ""))
 }
 
-func TestUnicodeGaugeUsesBoxDrawing(t *testing.T) {
+func TestUnicodeGaugeUsesBlockElements(t *testing.T) {
 	got := term.StripANSI(gauge(IconsUnicode, 86_000, 200_000))
-	if strings.ContainsAny(got, "▰▱") || !strings.Contains(got, "━") || !strings.Contains(got, "─") {
-		t.Errorf("gauge = %q, want box-drawing lines only", got)
+	if strings.ContainsAny(got, "▰▱") || !strings.Contains(got, "▄") || !strings.Contains(got, "▁") {
+		t.Errorf("gauge = %q, want block elements only", got)
 	}
 	if w := term.VisibleWidth(got); w != gaugeCells+1+len("86k") {
 		t.Errorf("gauge is %d columns wide", w)

@@ -8,19 +8,21 @@ import (
 
 // SGR styles. Only the 16 colours and the one 256-colour Claude orange are used so the terminal's theme applies.
 const (
-	fgReset  = "\x1b[39m"
-	bold     = "\x1b[1m"
-	boldOff  = "\x1b[22m"
-	dim      = "\x1b[90m"
-	cyan     = "\x1b[36m"
-	magenta  = "\x1b[35m"
-	green    = "\x1b[32m"
-	yellow   = "\x1b[33m"
-	white    = "\x1b[97m"
-	red      = "\x1b[31m"
-	blue     = "\x1b[34m"
-	orange   = "\x1b[38;5;173m"
-	greyBG   = "\x1b[100m"
+	fgReset = "\x1b[39m"
+	bold    = "\x1b[1m"
+	boldOff = "\x1b[22m"
+	dim     = "\x1b[90m"
+	cyan    = "\x1b[36m"
+	magenta = "\x1b[35m"
+	green   = "\x1b[32m"
+	yellow  = "\x1b[33m"
+	white   = "\x1b[97m"
+	red     = "\x1b[31m"
+	blue    = "\x1b[34m"
+	orange  = "\x1b[38;5;173m"
+	// The active card's fill is ANSI black, not bright black: bright black is the dim text and the borders, which must
+	// be readable, so a theme cannot make it also a subtle fill.
+	greyBG   = "\x1b[40m"
 	normal   = "\x1b[0m"
 	clearEOL = "\x1b[K"
 )
