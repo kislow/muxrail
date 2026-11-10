@@ -41,12 +41,13 @@ every session, with notifications, subagent trees and worktree spawn and teardow
 | What | Why |
 |---|---|
 | macOS on Apple silicon, tmux 3.8+ | the tested platform; the release archives also carry Intel and Linux builds, untested |
-| A [Nerd Font](https://www.nerdfonts.com) 3.5+ **selected in the terminal** | the agent logos and the rounded index pills are Nerd Font glyphs; without one they show as empty boxes |
+| A [Nerd Font](https://www.nerdfonts.com) 3.5+ **selected in the terminal** (optional) | only for the brand logos (`set -g @muxrail_icons nerd`) and rounded pill ends; the default Unicode icons need no font |
 | [tpm](https://github.com/tmux-plugins/tpm) | loads the plugin that binds the keys and sets the hooks (or source `muxrail.tmux` yourself) |
 | [fzf](https://github.com/junegunn/fzf) (tested with 0.70) | the session search popup |
 | An ANSI-16 terminal theme | muxrail draws with the 16 theme colours, plus one orange for Claude, so it follows your palette |
 
-Font: `brew install --cask font-jetbrains-mono-nerd-font`, then choose it in the terminal (Warp: Settings > Appearance > Text >
+Icons: the default `unicode` set (`✻` Claude, `⌘` Codex, `➤` Cursor, `✦` Gemini, `⎇` for the branch) draws in any font. For the brand logos, set
+`set -g @muxrail_icons nerd` and use a Nerd Font 3.5 or newer: `brew install --cask font-jetbrains-mono-nerd-font`, then choose it in the terminal (Warp: Settings > Appearance > Text >
 Font > `JetBrainsMono Nerd Font Mono`). A window that runs no agent shows a train emoji, which needs no font.
 
 ## Install
@@ -220,6 +221,7 @@ All options are tmux user options (`set -g ...`); the sidebar re-reads them ever
 | Option | Default | Does |
 |---|---|---|
 | `@muxrail_tabs` | unset | `rail` makes the plugin set the tab bar formats; read when the plugin loads |
+| `@muxrail_icons` | `unicode` | `unicode` draws the agent marks and the branch mark with plain Unicode symbols that any font has; `nerd` draws the brand logos, which need a Nerd Fonts 3.5+ font in the terminal; read live |
 | `@muxrail_ctx_window` | 200k, or 1M past it | context size the gauge measures against |
 | `@sidebar_layout` | `tiles` | `tiles` (cards) or `compact` (one line per window); `v` toggles it |
 | `@sidebar_width` | 34 | sidebar width in columns; dragging the border sets it |

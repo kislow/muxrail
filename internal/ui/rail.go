@@ -35,13 +35,13 @@ func stationFor(status string, current bool) station {
 
 // RailTab is a window's stop on the tab rail as tmux style codes: the state station, the window index and the agent
 // logo. The track between stops and the window name come from the tmux format around it.
-func RailTab(t windows.Tab, index string, current bool) string {
+func RailTab(set Icons, t windows.Tab, index string, current bool) string {
 	st := stationFor(t.Status, current)
 	idx, weight := "#[fg=brightblack]", ""
 	if current {
 		idx, weight = "#[fg=default,bold]", ",bold"
 	}
-	icon := TabIcon(t.Kind, t.Command, false)
+	icon := TabIcon(set, t.Kind, t.Command, false)
 	if !strings.HasSuffix(icon, " ") { // two-column emoji get no padding from TabIcon but still need room before the name
 		icon += " "
 	}

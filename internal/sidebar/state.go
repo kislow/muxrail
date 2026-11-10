@@ -44,6 +44,7 @@ func newState(ctx context.Context) (*state, error) {
 type snapshot struct {
 	wins       []*windows.Win
 	capL, capR string
+	icons      ui.Icons
 	ctxWindow  int
 	layout     string
 	debug      bool
@@ -61,11 +62,12 @@ type snapshot struct {
 // ps calls were most of its cost.
 func (s *state) fetch(ctx context.Context, skipHidden bool) (*snapshot, error) {
 	v, err := tmux.Values(ctx, s.pane, "@cap_l", "@cap_r", "@sidebar_layout", "@sidebar_debug", "@muxrail_ctx_window",
-		"window_active", "session_attached", "window_panes")
+		"window_active", "session_attached", "window_panes", "@muxrail_icons")
 	if err != nil {
 		return nil, err
 	}
-	snap := &snapshot{layout: ui.LayoutTiles, capL: v[0], capR: v[1], debug: v[3] == "1", visible: v[5] == "1" && v[6] != "0", alone: v[7] == "1"}
+	snap := &snapshot{layout: ui.LayoutTiles, capL: v[0], capR: v[1], debug: v[3] == "1", visible: v[5] == "1" && v[6] != "0", alone: v[7] == "1",
+		icons: ui.ParseIcons(v[8])}
 	if v[2] == ui.LayoutCompact {
 		snap.layout = ui.LayoutCompact
 	}
@@ -95,6 +97,7 @@ func (s *state) apply(snap *snapshot) {
 	}
 	s.wins, s.env.CapL, s.env.CapR, s.debug, s.layout = snap.wins, snap.capL, snap.capR, snap.debug, snap.layout
 	s.env.CtxWindow = snap.ctxWindow
+	s.env.Icons = snap.icons
 	s.visible = snap.visible
 	s.followActive()
 }

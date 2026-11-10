@@ -26,7 +26,7 @@ func TestTabIcon(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := TabIcon(tt.kind, tt.command, tt.plain); got != tt.want {
+			if got := TabIcon(IconsNerd, tt.kind, tt.command, tt.plain); got != tt.want {
 				t.Errorf("TabIcon = %q, want %q", got, tt.want)
 			}
 		})
@@ -34,8 +34,16 @@ func TestTabIcon(t *testing.T) {
 }
 
 func TestIconsOccupyTwoColumns(t *testing.T) {
+	for _, set := range []Icons{IconsUnicode, IconsNerd} {
+		t.Run(string(set), func(t *testing.T) {
+			iconsOccupyTwoColumns(t, set)
+		})
+	}
+}
+
+func iconsOccupyTwoColumns(t *testing.T, set Icons) {
 	for _, w := range []*windows.Win{{Kind: "claude"}, {Kind: "codex"}, {Kind: "cursor"}, {Kind: "gemini"}, {Command: "1.1.1"}, {Command: "zsh"}} {
-		if got := term.VisibleWidth(agentIcon(w)); got != 2 {
+		if got := term.VisibleWidth(agentIcon(set, w)); got != 2 {
 			t.Errorf("icon of %+v is %d columns, want 2", w, got)
 		}
 	}
@@ -52,8 +60,42 @@ func TestAgentIconColours(t *testing.T) {
 		{windows.Win{Command: "zsh"}, dim + "\U0001F686" + fgReset},
 	}
 	for _, tt := range tests {
-		if got := agentIcon(&tt.win); got != tt.want {
+		if got := agentIcon(IconsNerd, &tt.win); got != tt.want {
 			t.Errorf("agentIcon(%+v) = %q, want %q", tt.win, got, tt.want)
 		}
+	}
+}
+
+func TestUnicodeIcons(t *testing.T) {
+	tests := []struct {
+		kind string
+		want string
+	}{
+		{"claude", "#[fg=colour173]✻#[fg=default] "},
+		{"codex", "#[fg=cyan]⌘#[fg=default] "},
+		{"cursor", "#[fg=brightwhite]➤#[fg=default] "},
+		{"gemini", "#[fg=blue]✦#[fg=default] "},
+	}
+	for _, tt := range tests {
+		t.Run(tt.kind, func(t *testing.T) {
+			if got := TabIcon(IconsUnicode, tt.kind, "node", false); got != tt.want {
+				t.Errorf("TabIcon = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestUnicodeIsTheDefault(t *testing.T) {
+	for _, v := range []string{"", "unicode", "nerd ", "NERD", "x"} {
+		if got := ParseIcons(v); got != IconsUnicode {
+			t.Errorf("ParseIcons(%q) = %q, want the Unicode set", v, got)
+		}
+	}
+	if got := ParseIcons("nerd"); got != IconsNerd {
+		t.Errorf("ParseIcons(nerd) = %q", got)
+	}
+	var e Env
+	if e.Icons.branch() != branchUnicode {
+		t.Errorf("zero Env draws %q, want the Unicode branch mark", e.Icons.branch())
 	}
 }

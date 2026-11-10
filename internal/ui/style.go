@@ -48,6 +48,8 @@ type Env struct {
 	CapL, CapR string
 	// CtxWindow is the context size the gauge measures against; zero means 200k, or 1M once a context outgrows that.
 	CtxWindow int
+	// Icons is the glyph set of the agent logos and the branch mark (@muxrail_icons); the zero value is the Unicode set.
+	Icons Icons
 }
 
 func fg(colour int) string { return "\x1b[3" + strconv.Itoa(colour) + "m" }

@@ -86,7 +86,7 @@ func (e *Env) bodyRows(w *windows.Win, width int) []string {
 	if chip != "" && !narrow {
 		nameRoom -= chipWidth + 1
 	}
-	head := pill + " " + agentIcon(w) + bold + term.Clip(displayName(w, task), max(nameRoom, 1)) + boldOff
+	head := pill + " " + agentIcon(e.Icons, w) + bold + term.Clip(displayName(w, task), max(nameRoom, 1)) + boldOff
 	if !narrow {
 		head = term.Pad(head, inner-chipWidth) + chip
 	}
@@ -98,7 +98,7 @@ func (e *Env) bodyRows(w *windows.Win, width int) []string {
 		rows = append(rows, strings.Repeat(" ", indent)+act)
 	}
 	if w.Git != nil {
-		rows = append(rows, strings.Repeat(" ", indent)+gitRow(w.Git, inner-indent))
+		rows = append(rows, strings.Repeat(" ", indent)+gitRow(e.Icons, w.Git, inner-indent))
 	}
 	return rows
 }
@@ -185,6 +185,6 @@ func (e *Env) compactCard(w *windows.Win, width int, marker string) string {
 		room -= chipWidth + 1
 	}
 	name := displayName(w, titleOf(w))
-	head := marker + normal + activeBG(w) + pill + " " + agentIcon(w) + bold + term.Clip(name, max(room, 1)) + boldOff
+	head := marker + normal + activeBG(w) + pill + " " + agentIcon(e.Icons, w) + bold + term.Clip(name, max(room, 1)) + boldOff
 	return term.Fit(term.Pad(head, width-1-chipWidth)+chip, width-1) + normal
 }

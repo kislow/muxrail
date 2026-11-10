@@ -76,6 +76,18 @@ func stubSessionOnScreen(t *testing.T, layout, active, attached string) {
 // stubSessionPanes is stubSession with the answers tmux gives for window_active, session_attached and window_panes.
 func stubSessionPanes(t *testing.T, layout, active, attached, panes string) {
 	t.Helper()
+	stubSessionAll(t, layout, active, attached, panes, "")
+}
+
+// stubSessionIcons is stubSession with the answer tmux gives for @muxrail_icons.
+func stubSessionIcons(t *testing.T, layout, active, attached, icons string) {
+	t.Helper()
+	stubSessionAll(t, layout, active, attached, "2", icons)
+}
+
+// stubSessionAll answers every field the sidebar asks tmux for.
+func stubSessionAll(t *testing.T, layout, active, attached, panes, icons string) {
+	t.Helper()
 	testutil.IsolatedTmp(t)
 	t.Setenv("TMUX", "")
 	t.Setenv("TMUX_PANE", "%0")
@@ -83,7 +95,7 @@ func stubSessionPanes(t *testing.T, layout, active, attached, panes string) {
 display-message)
   case "$5" in
   '#{session_id}') echo '$1' ;;
-  *) printf '(\037)\037%s\037\037\037%s\037%s\037%s\n' '`+layout+`' '`+active+`' '`+attached+`' '`+panes+`' ;;
+  *) printf '(\037)\037%s\037\037\037%s\037%s\037%s\037%s\n' '`+layout+`' '`+active+`' '`+attached+`' '`+panes+`' '`+icons+`' ;;
   esac ;;
 list-panes)
   if [ "$2" = "-a" ]; then exit 0; fi
@@ -273,5 +285,21 @@ func TestAFailedReadDoesNotCountTowardsLeaving(t *testing.T) {
 	l.finishFetch(fetchResult{err: errors.New("tmux gone")})
 	if l.alone != 1 {
 		t.Errorf("alone = %d, want an error read to leave the count as it was", l.alone)
+	}
+}
+
+func TestFetchReadsTheIconOption(t *testing.T) {
+	for icons, want := range map[string]ui.Icons{"": ui.IconsUnicode, "nerd": ui.IconsNerd, "unicode": ui.IconsUnicode} {
+		t.Run("icons="+icons, func(t *testing.T) {
+			stubSessionIcons(t, "tiles", "1", "1", icons)
+			s, err := newState(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			snap, err := s.fetch(context.Background(), false)
+			if err != nil || snap.icons != want {
+				t.Errorf("icons = %q, %v; want %q", snap.icons, err, want)
+			}
+		})
 	}
 }
