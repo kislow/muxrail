@@ -20,9 +20,10 @@ const (
 	red     = "\x1b[31m"
 	blue    = "\x1b[34m"
 	orange  = "\x1b[38;5;173m"
-	// The active card's fill is ANSI black, not bright black: bright black is the dim text and the borders, which must
-	// be readable, so a theme cannot make it also a subtle fill.
-	greyBG   = "\x1b[40m"
+	// The active card's fill is a fixed 256-colour grey (235, #262626), not a palette slot: bright black is the dim text and
+	// the borders, which must be readable, and black is darker than the background in many themes (Adeberry's is #121212).
+	// Terminals that draw bright black differently behind text than as text, such as Warp, have no single slot for it.
+	greyBG   = "\x1b[48;5;235m"
 	normal   = "\x1b[0m"
 	clearEOL = "\x1b[K"
 )
