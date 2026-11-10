@@ -167,11 +167,15 @@ enabled the mode.
 - `ensure`: does nothing unless `@sidebar_on` is 1. Under the per-window lock (directory `$TMPDIR/tmux-sidebar-<window_id>.lock`, taken
   with mkdir; a window that is locked is skipped), a window with no sidebar and at least 90 columns gets one:
   `split-window -hbdf -l <width>` running `<absolute binary path> sidebar`, marked with the pane option `@sidebar 1`. Any other window has its sidebar
-  sized to the shared width. `MUXRAIL_BIN` overrides the path, which is otherwise `os.Executable`.
+  sized to the shared width. A stored `@sidebar_width` above 80 is ignored and the default applies. `MUXRAIL_BIN` overrides the path, which is otherwise `os.Executable`.
 - `wake`: types `ESC [ 9 9 9 9 ~` into the sidebars of the window that came on screen.
 - `remember`: stores the width of the window's sidebar as `@sidebar_width`. tmux names the pane under the mouse during a drag, so the
-  sidebar is looked up in the window.
+  sidebar is looked up in the window. Nothing is stored when the sidebar is the window's only pane or is wider than half the window:
+  it got that width by filling the window, not by a drag.
 - `apply`: `remember`, then resizes every sidebar of the session to `@sidebar_width` (default 34).
+
+The sidebar process exits when its window has no other pane (`#{window_panes}` is 1 on two reads in a row, taken with the data it
+already reads each tick), so tmux closes the window as it does for any window whose last pane exits.
 
 ## `tab`
 

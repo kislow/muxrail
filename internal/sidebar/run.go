@@ -67,7 +67,7 @@ func Run(ctx context.Context) error {
 	loop := &loop{state: s, input: readInput(os.Stdin), fetched: make(chan fetchResult, 1), refreshed: time.Now(), winch: winch}
 	for ctx.Err() == nil {
 		err := loop.iterate(ctx)
-		if errors.Is(err, io.EOF) {
+		if errors.Is(err, io.EOF) || errors.Is(err, errAlone) {
 			return nil
 		}
 		if err != nil {
@@ -77,6 +77,10 @@ func Run(ctx context.Context) error {
 	}
 	return nil
 }
+
+// errAlone ends the loop when the sidebar is the last pane of its window; tmux then closes the window, as it does for
+// any window whose last pane exits.
+var errAlone = errors.New("sidebar is the only pane in its window")
 
 type fetchResult struct {
 	snap *snapshot
@@ -107,6 +111,8 @@ type loop struct {
 	fetching bool
 	pending  *snapshot
 	gen      int
+	// alone counts the reads in a row that found the sidebar the only pane of its window.
+	alone int
 }
 
 func (l *loop) iterate(ctx context.Context) error {
@@ -129,6 +135,9 @@ func (l *loop) iterate(ctx context.Context) error {
 	case <-ctx.Done():
 	case r := <-l.fetched:
 		l.finishFetch(r)
+		if l.alone >= 2 {
+			return errAlone
+		}
 	case <-l.winch:
 		l.wake()
 	case chunk, ok := <-l.input:
@@ -189,10 +198,25 @@ func (l *loop) finishFetch(r fetchResult) {
 	switch {
 	case r.err != nil:
 		l.logError(r.err)
+		return
 	case r.gen != l.gen:
 		l.refreshed = time.Time{}
 	default:
 		l.pending = r.snap
+	}
+	l.noteAlone(r.snap)
+}
+
+// noteAlone counts the reads in a row that found no other pane in the window. The first one asks for the next read at
+// once: closing the window needs two, which guards against a window caught between pane changes. A window being split
+// never reads as alone, because the new sidebar pane is counted together with the pane it was split from.
+func (l *loop) noteAlone(snap *snapshot) {
+	if !snap.alone {
+		l.alone = 0
+		return
+	}
+	if l.alone++; l.alone == 1 {
+		l.refreshed = time.Time{}
 	}
 }
 

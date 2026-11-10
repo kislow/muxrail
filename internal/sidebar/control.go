@@ -15,6 +15,9 @@ import (
 const (
 	// DefaultWidth is the sidebar width until a border is dragged.
 	DefaultWidth = 34
+	// MaxWidth caps a stored @sidebar_width. A sidebar that fills its window reports the window's width, and nobody
+	// drags a rail past this, so a larger stored value is ignored and the default applies.
+	MaxWidth = 80
 	// MinWindowWidth is the narrowest window that gets a sidebar.
 	MinWindowWidth = 90
 )
@@ -80,7 +83,7 @@ func (c *Controller) width(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if w, err := strconv.Atoi(strings.TrimSpace(out)); err == nil && w > 0 {
+	if w, err := strconv.Atoi(strings.TrimSpace(out)); err == nil && w > 0 && w <= MaxWidth {
 		return w, nil
 	}
 	return DefaultWidth, nil
@@ -112,17 +115,26 @@ func (c *Controller) resize(ctx context.Context, scope ...string) error {
 }
 
 // remember stores the width of target's window's sidebar as the shared one. During a mouse drag tmux names the pane
-// under the mouse, not necessarily the sidebar, so the sidebar is looked up in the window.
+// under the mouse, not necessarily the sidebar, so the sidebar is looked up in the window. A sidebar that is the only
+// pane, or wider than half the window, got that size by filling the window rather than by a drag, so it is not stored.
 func (c *Controller) remember(ctx context.Context, target string) error {
-	out, err := c.Tmux(ctx, "list-panes", "-t", target, "-F", "#{@sidebar} #{pane_width}")
+	out, err := c.Tmux(ctx, "list-panes", "-t", target, "-F", "#{@sidebar} #{pane_width} #{window_panes} #{window_width}")
 	if err != nil {
 		return err
 	}
 	for _, line := range strings.Split(out, "\n") {
-		if flag, width, ok := strings.Cut(line, " "); ok && flag == "1" {
-			_, err := c.Tmux(ctx, "set-option", "-g", "@sidebar_width", width)
-			return err
+		fields := strings.Fields(line)
+		if len(fields) != 4 || fields[0] != "1" {
+			continue
 		}
+		panes, _ := strconv.Atoi(fields[2])
+		width, _ := strconv.Atoi(fields[1])
+		window, _ := strconv.Atoi(fields[3])
+		if panes < 2 || width*2 > window {
+			return nil
+		}
+		_, err := c.Tmux(ctx, "set-option", "-g", "@sidebar_width", fields[1])
+		return err
 	}
 	return nil
 }

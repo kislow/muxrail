@@ -51,12 +51,12 @@ func newController(t *testing.T, f *fakeTmux) *Controller {
 
 const (
 	listSidebars = "list-panes -s -t %5 -F #{pane_id} #{@sidebar}"
-	listWindow   = "list-panes -t %5 -F #{@sidebar} #{pane_width}"
+	listWindow   = "list-panes -t %5 -F #{@sidebar} #{pane_width} #{window_panes} #{window_width}"
 )
 
 func TestApplySharesTheDraggedWidth(t *testing.T) {
 	f := newFake()
-	f.replies[listWindow] = "0 100\n1 52"
+	f.replies[listWindow] = "0 100 2 200\n1 52 2 200"
 	f.replies[listSidebars] = "%1 1\n%2 \n%3 1\n%4 0"
 	f.replies["display-message -p -t %1 #{pane_width}"] = "34"
 	f.replies["display-message -p -t %3 #{pane_width}"] = "52"
@@ -71,14 +71,52 @@ func TestApplySharesTheDraggedWidth(t *testing.T) {
 	}
 }
 
-func TestRememberIgnoresAWindowWithoutASidebar(t *testing.T) {
-	f := newFake()
-	f.replies[listWindow] = "0 100\n0 40"
-	if err := newController(t, f).Do(context.Background(), "remember", "%5"); err != nil {
-		t.Fatal(err)
+func TestRemember(t *testing.T) {
+	tests := []struct {
+		name, panes, want string
+	}{
+		{"normal", "0 100 2 200\n1 52 2 200", "52"},
+		{"exactly half the window", "0 100 2 200\n1 100 2 200", "100"},
+		{"over half the window", "0 40 2 200\n1 101 2 200", ""},
+		{"alone in the window", "1 200 1 200", ""},
+		{"no sidebar", "0 100 2 200\n0 40 2 200", ""},
 	}
-	if got, ok := f.options["@sidebar_width"]; ok {
-		t.Errorf("@sidebar_width = %q, want it left alone", got)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFake()
+			f.replies[listWindow] = tt.panes
+			if err := newController(t, f).Do(context.Background(), "remember", "%5"); err != nil {
+				t.Fatal(err)
+			}
+			if got := f.options["@sidebar_width"]; got != tt.want {
+				t.Errorf("@sidebar_width = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWidth(t *testing.T) {
+	tests := []struct {
+		name, stored string
+		want         int
+	}{
+		{"unset", "", DefaultWidth},
+		{"normal", "52", 52},
+		{"at the cap", "80", MaxWidth},
+		{"over the cap", "81", DefaultWidth},
+		{"a window's full width", "200", DefaultWidth},
+		{"not a number", "wide", DefaultWidth},
+		{"zero", "0", DefaultWidth},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFake()
+			f.options["@sidebar_width"] = tt.stored
+			got, err := newController(t, f).width(context.Background())
+			if err != nil || got != tt.want {
+				t.Errorf("width = %d, %v; want %d", got, err, tt.want)
+			}
+		})
 	}
 }
 
