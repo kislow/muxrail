@@ -24,6 +24,9 @@ type Info struct {
 	Context int
 	// Window is the context window the agent reports for the model; zero when the transcript does not say.
 	Window int
+	// Cwd is the folder the session last ran in, which follows the agent as it changes directory; empty when the
+	// transcript does not say. The pane's own folder stays where the agent was started.
+	Cwd string
 }
 
 // tailBytes is how much of a transcript's end is read: a tool result can be large, so it is generous.
@@ -176,7 +179,8 @@ type record struct {
 			CacheRead   int `json:"cache_read_input_tokens"`
 		} `json:"usage"`
 	} `json:"message"`
-	Sidechain bool `json:"isSidechain"`
+	Sidechain bool   `json:"isSidechain"`
+	Cwd       string `json:"cwd"`
 }
 
 type block struct {
@@ -195,6 +199,9 @@ func parse(data []byte) *Info {
 		var r record
 		if len(line) == 0 || json.Unmarshal(line, &r) != nil || r.Sidechain {
 			continue
+		}
+		if r.Cwd != "" {
+			info.Cwd = r.Cwd
 		}
 		switch r.Message.Role {
 		case "assistant":

@@ -8,19 +8,22 @@ import (
 
 // SGR styles. Only the 16 colours and the one 256-colour Claude orange are used so the terminal's theme applies.
 const (
-	fgReset  = "\x1b[39m"
-	bold     = "\x1b[1m"
-	boldOff  = "\x1b[22m"
-	dim      = "\x1b[90m"
-	cyan     = "\x1b[36m"
-	magenta  = "\x1b[35m"
-	green    = "\x1b[32m"
-	yellow   = "\x1b[33m"
-	white    = "\x1b[97m"
-	red      = "\x1b[31m"
-	blue     = "\x1b[34m"
-	orange   = "\x1b[38;5;173m"
-	greyBG   = "\x1b[100m"
+	fgReset = "\x1b[39m"
+	bold    = "\x1b[1m"
+	boldOff = "\x1b[22m"
+	dim     = "\x1b[90m"
+	cyan    = "\x1b[36m"
+	magenta = "\x1b[35m"
+	green   = "\x1b[32m"
+	yellow  = "\x1b[33m"
+	white   = "\x1b[97m"
+	red     = "\x1b[31m"
+	blue    = "\x1b[34m"
+	orange  = "\x1b[38;5;173m"
+	// The active card's fill is a fixed 256-colour grey (235, #262626), not a palette slot: bright black is the dim text and
+	// the borders, which must be readable, and black is darker than the background in many themes (Adeberry's is #121212).
+	// Terminals that draw bright black differently behind text than as text, such as Warp, have no single slot for it.
+	greyBG   = "\x1b[48;5;235m"
 	normal   = "\x1b[0m"
 	clearEOL = "\x1b[K"
 )
@@ -48,6 +51,8 @@ type Env struct {
 	CapL, CapR string
 	// CtxWindow is the context size the gauge measures against; zero means 200k, or 1M once a context outgrows that.
 	CtxWindow int
+	// Icons is the glyph set of the agent logos and the branch mark (@muxrail_icons); the zero value is the Unicode set.
+	Icons Icons
 }
 
 func fg(colour int) string { return "\x1b[3" + strconv.Itoa(colour) + "m" }

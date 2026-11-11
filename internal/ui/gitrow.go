@@ -38,7 +38,7 @@ func diffChip(l gitinfo.Lines, pen string) string {
 }
 
 // gitRow is the branch, then committed and uncommitted changes (pen glyph); the branch name gives way first.
-func gitRow(info *gitinfo.Info, room int) string {
+func gitRow(set Icons, info *gitinfo.Info, room int) string {
 	if info == nil {
 		return ""
 	}
@@ -54,7 +54,7 @@ func gitRow(info *gitinfo.Info, room int) string {
 		taken = visible(stats) + 1
 	}
 	branchRoom := max(room-2-taken, minBranchRoom)
-	row := blue + branchIcon + " " + term.Clip(info.Branch, branchRoom) + fgReset
+	row := blue + set.branch() + " " + term.Clip(info.Branch, branchRoom) + fgReset
 	if stats != "" {
 		row += " " + stats
 	}

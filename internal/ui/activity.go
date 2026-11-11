@@ -44,8 +44,10 @@ func tokens(n int) string {
 	return fmt.Sprintf("%.1fM", float64(n)/1e6)
 }
 
-// gauge is a small bar of how full the context is, coloured by how close compaction is, with the token count.
-func gauge(used, window int) string {
+// gauge is a small bar of how full the context is, coloured by how close compaction is, with the token count. The
+// Unicode set draws it with braille cells (⣿ filled, ⣀ empty), one column in every monospaced font; ▰▱
+// are in few fonts, and the fallback glyph is wider than a cell and runs into the token count.
+func gauge(set Icons, used, window int) string {
 	ratio := min(float64(used)/float64(window), 1)
 	filled := min(max(int(ratio*gaugeCells+0.5), 1), gaugeCells)
 	colour := green
@@ -55,7 +57,11 @@ func gauge(used, window int) string {
 	case ratio >= warnRatio:
 		colour = yellow
 	}
-	return colour + strings.Repeat("▰", filled) + dim + strings.Repeat("▱", gaugeCells-filled) + fgReset + " " + dim + tokens(used) + fgReset
+	full, empty := "⣿", "⣀"
+	if set == IconsNerd {
+		full, empty = "▰", "▱"
+	}
+	return colour + strings.Repeat(full, filled) + dim + strings.Repeat(empty, gaugeCells-filled) + fgReset + " " + dim + tokens(used) + fgReset
 }
 
 // action is what to say about the agent right now: its tool call or thinking while it works, and a tool call it has
@@ -83,6 +89,6 @@ func activityRow(w *windows.Win, e *Env, room int) string {
 	if w.Activity.Context <= 0 || room < gaugeMinRoom {
 		return action(w, room)
 	}
-	g := gauge(w.Activity.Context, e.ctxWindow(w.Activity.Context, w.Activity.Window))
+	g := gauge(e.Icons, w.Activity.Context, e.ctxWindow(w.Activity.Context, w.Activity.Window))
 	return term.Pad(action(w, room-visible(g)-1), room-visible(g)) + g
 }

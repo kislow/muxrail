@@ -206,7 +206,7 @@ func TestGitRow(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := plain(gitRow(tt.info, tt.room))
+			got := plain(gitRow(IconsNerd, tt.info, tt.room))
 			if !strings.HasPrefix(got, tt.want) {
 				t.Errorf("gitRow = %q, want prefix %q", got, tt.want)
 			}

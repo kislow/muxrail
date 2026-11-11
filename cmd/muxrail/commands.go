@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/kislow/muxrail/internal/agents"
 	"github.com/kislow/muxrail/internal/picker"
 	"github.com/kislow/muxrail/internal/sessions"
 	"github.com/kislow/muxrail/internal/sidebar"
+	"github.com/kislow/muxrail/internal/tmux"
 	"github.com/kislow/muxrail/internal/ui"
 	"github.com/kislow/muxrail/internal/windows"
 )
@@ -67,12 +69,25 @@ func tabCmd(ctx context.Context, args []string) error {
 	if err != nil || !ok {
 		return err
 	}
-	if rail {
-		_, err = fmt.Fprint(os.Stdout, ui.RailTab(tab, args[2], args[1] == "rail-current"))
+	set, err := iconSet(ctx)
+	if err != nil {
 		return err
 	}
-	_, err = fmt.Fprint(os.Stdout, ui.TabIcon(tab.Kind, tab.Command, len(args) == 2))
+	if rail {
+		_, err = fmt.Fprint(os.Stdout, ui.RailTab(set, tab, args[2], args[1] == "rail-current"))
+		return err
+	}
+	_, err = fmt.Fprint(os.Stdout, ui.TabIcon(set, tab.Kind, tab.Command, len(args) == 2))
 	return err
+}
+
+// iconSet reads @muxrail_icons from the tmux server; unset reads as the default Unicode set.
+func iconSet(ctx context.Context) (ui.Icons, error) {
+	out, err := tmux.Output(ctx, "show-options", "-gqv", "@muxrail_icons")
+	if err != nil {
+		return ui.IconsUnicode, err
+	}
+	return ui.ParseIcons(strings.TrimSpace(out)), nil
 }
 
 func statusCmd(ctx context.Context) error {

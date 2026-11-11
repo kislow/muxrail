@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kislow/muxrail/internal/activity"
 	"github.com/kislow/muxrail/internal/testutil"
 )
 
@@ -256,5 +257,24 @@ func TestAttachActivity(t *testing.T) {
 	}
 	if wins[2].Activity != nil {
 		t.Errorf("only Claude windows read a transcript, got %+v", wins[2].Activity)
+	}
+}
+
+func TestGitPathFollowsTheAgentNotThePane(t *testing.T) {
+	tests := []struct {
+		name string
+		win  Win
+		want string
+	}{
+		{"no activity", Win{Path: "/home/me"}, "/home/me"},
+		{"activity without a folder", Win{Path: "/home/me", Activity: &activity.Info{}}, "/home/me"},
+		{"the agent moved into a repo", Win{Path: "/home/me", Activity: &activity.Info{Cwd: "/home/me/src/api"}}, "/home/me/src/api"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := gitPath(&tt.win); got != tt.want {
+				t.Errorf("gitPath = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }

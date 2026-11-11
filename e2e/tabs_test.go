@@ -14,8 +14,8 @@ import (
 var escapes = regexp.MustCompile(`\x1b\[[0-9;:?]*[A-Za-z]|\x1b\(B|\x1b[=>]`)
 
 const (
-	claudeLogo = ""
-	openaiLogo = ""
+	claudeLogo = "✻"
+	openaiLogo = "⌘"
 	train      = "\U0001F686"
 )
 
