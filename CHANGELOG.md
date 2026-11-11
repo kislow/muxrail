@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/kislow/muxrail/compare/v0.6.2...v0.7.0) (2026-11-11)
+
+
+### Features
+
+* plain Unicode icons by default, Nerd Font logos opt-in; branch follows the agent ([#13](https://github.com/kislow/muxrail/issues/13)) ([cff6bc4](https://github.com/kislow/muxrail/commit/cff6bc4ff9ec1e1075b4dfd8d6802fb8c117e9a5))
+
 ## [0.6.2](https://github.com/kislow/muxrail/compare/v0.6.1...v0.6.2) (2026-11-10)
 
 
