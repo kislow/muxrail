@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/kislow/muxrail/compare/v0.8.0...v0.9.0) (2026-11-14)
+
+
+### Features
+
+* **vibe:** branch row follows the repo the agent cds into ([#17](https://github.com/kislow/muxrail/issues/17)) ([f57904c](https://github.com/kislow/muxrail/commit/f57904c7354b571d6f3f87a843aec587f4fae834))
+
 ## [0.8.0](https://github.com/kislow/muxrail/compare/v0.7.0...v0.8.0) (2026-11-14)
 
 
