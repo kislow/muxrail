@@ -10,17 +10,20 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kislow/muxrail/internal/activity"
 	"github.com/kislow/muxrail/internal/jsoncache"
 	"github.com/kislow/muxrail/internal/tmux"
 )
 
 const snapshotTTL = 3 * time.Second
 
-// Info is what is known about one pane: the agent running in it, the status its hooks last reported and when that status began.
+// Info is what is known about one pane: the agent running in it, the status its hooks last reported and when that status
+// began, and for Vibe, which records it, the session it runs.
 type Info struct {
-	Kind   string  `json:"kind,omitempty"`
-	Status string  `json:"status,omitempty"`
-	Since  float64 `json:"since,omitempty"`
+	Kind    string  `json:"kind,omitempty"`
+	Status  string  `json:"status,omitempty"`
+	Since   float64 `json:"since,omitempty"`
+	Session string  `json:"session,omitempty"`
 }
 
 // Snapshot maps pane id to Info.
@@ -53,13 +56,14 @@ func Load(ctx context.Context) (Snapshot, error) {
 	return snap, nil
 }
 
-// build combines process detection (kind) with the state files the hooks write (status and timing).
+// build combines process detection (kind) with the state files the hooks write (status and timing), and Vibe's own
+// session store, which records a state its hooks cannot report.
 func build(ctx context.Context) (Snapshot, error) {
 	ttys, err := paneTTYs(ctx)
 	if err != nil {
 		return nil, err
 	}
-	ps, err := exec.CommandContext(ctx, "ps", "-axo", "tty=,stat=,comm=,args=").Output()
+	ps, err := exec.CommandContext(ctx, "ps", "-axo", psFormat).Output()
 	if err != nil {
 		return nil, fmt.Errorf("%w: ps", err)
 	}
@@ -70,7 +74,27 @@ func build(ctx context.Context) (Snapshot, error) {
 		}
 	}
 	mergeHookState(ctx, snap, ttys)
+	mergeVibe(snap, ttys, TTYsByPID(string(ps)))
 	return snap, nil
+}
+
+// mergeVibe gives each Vibe pane its session and the state its store records. A session belongs to the pane whose
+// terminal its lock holder runs on; a home that cannot be found leaves Vibe panes on process detection alone.
+func mergeVibe(snap Snapshot, ttys map[string]string, pids map[int]string) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+	for pid, id := range activity.VibeSessions(home) {
+		info := snap[ttys[pids[pid]]]
+		if info == nil || info.Kind != Vibe {
+			continue
+		}
+		info.Session = id
+		if a, err := activity.ReadVibe(home, id); err == nil && a != nil && a.Status != "" {
+			info.Status, info.Since = a.Status, a.Since
+		}
+	}
 }
 
 // mergeHookState adds what the hooks of this tmux server reported and removes the files of its panes that no longer

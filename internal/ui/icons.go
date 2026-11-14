@@ -59,12 +59,14 @@ var (
 		agents.Codex:  {"⌘", cyan, "cyan"},
 		agents.Cursor: {"➤", white, "brightwhite"},
 		agents.Gemini: {"✦", blue, "blue"},
+		agents.Vibe:   {"▞", red, "red"},
 	}
 	brandsNerd = map[string]icon{
 		agents.Claude: {"", orange, "colour173"},
 		agents.Codex:  {"", cyan, "cyan"},
 		agents.Cursor: {"", white, "brightwhite"},
 		agents.Gemini: {"", blue, "blue"},
+		agents.Vibe:   {"\U000f059d", red, "red"}, // weather-windy: Mistral is a wind
 	}
 	unknownAgent = icon{locomotive, magenta, "magenta"}
 	plainWindow  = icon{train, dim, "brightblack"}

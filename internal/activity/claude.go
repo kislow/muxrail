@@ -27,6 +27,10 @@ type Info struct {
 	// Cwd is the folder the session last ran in, which follows the agent as it changes directory; empty when the
 	// transcript does not say. The pane's own folder stays where the agent was started.
 	Cwd string
+	// Status and Since are the state the transcript itself records and when it began, for an agent whose hooks cannot
+	// report it: only Vibe's store does. Empty and zero otherwise.
+	Status string
+	Since  float64
 }
 
 // tailBytes is how much of a transcript's end is read: a tool result can be large, so it is generous.
