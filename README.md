@@ -1,7 +1,7 @@
 # muxrail
 
 A rail of every tmux window, down the side and along the bottom, whether it runs a coding agent or a plain shell.
-Windows that run Claude Code, Codex or Cursor also show what the agent is doing.
+Windows that run Claude Code, Codex, Cursor or Mistral Vibe also show what the agent is doing.
 
 ![The sidebar and tab rail: Claude Code, Codex and Cursor windows working, waiting and done, next to two plain shells](docs/images/sidebar.png)
 
@@ -9,7 +9,7 @@ Windows that run Claude Code, Codex or Cursor also show what the agent is doing.
   state and how long it has been in it, and the task title. Click a card to switch, drag it (with a live preview) or press
   `J`/`K` to reorder.
 - **Tab rail.** The tab bar drawn as stops on a rail, each coloured by its agent's state, with the agent counts at the right.
-- **What the agent is doing.** A Claude Code, Codex or Cursor card shows the tool call in flight, a permission prompt in yellow,
+- **What the agent is doing.** A Claude Code, Codex, Cursor or Vibe card shows the tool call in flight, a permission prompt in yellow,
   and a gauge of how full the context is.
 - **Session search.** One fuzzy-searchable list of every Claude Code, Codex and Cursor CLI session, with a preview, and a key that
   resumes the one you pick in a new window.
@@ -46,7 +46,7 @@ every session, with notifications, subagent trees and worktree spawn and teardow
 | [fzf](https://github.com/junegunn/fzf) (tested with 0.70) | the session search popup |
 | An ANSI-16 terminal theme | muxrail draws with the 16 theme colours, plus one orange for Claude, so it follows your palette |
 
-Icons: the default `unicode` set (`✻` Claude, `⌘` Codex, `➤` Cursor, `✦` Gemini, `⎇` for the branch) draws in any font. For the brand logos, set
+Icons: the default `unicode` set (`✻` Claude, `⌘` Codex, `➤` Cursor, `✦` Gemini, `▞` Vibe, `⎇` for the branch) draws in any font. For the brand logos, set
 `set -g @muxrail_icons nerd` and use a Nerd Font 3.5 or newer: `brew install --cask font-jetbrains-mono-nerd-font`, then choose it in the terminal (Warp: Settings > Appearance > Text >
 Font > `JetBrainsMono Nerd Font Mono`). A window that runs no agent shows a train emoji, which needs no font.
 
@@ -145,6 +145,10 @@ never waiting. Do not use `preToolUse` here: Cursor blocks the tool when that ho
 }
 ```
 
+Mistral Vibe needs no hooks. Its hooks fire only around tool calls and after a turn, so they could not report a prompt being sent or
+a permission prompt, but Vibe records both in its session store (`~/.vibe/logs/session`, or `$VIBE_HOME`), and muxrail reads the state
+from there.
+
 `muxrail hook [--kind NAME] start|working|waiting|done` records the state of the pane named by `$TMUX_PANE` in
 `$XDG_STATE_HOME/muxrail/agents/<socket>/<pane id>.json` (default `~/.local/state/muxrail/agents`), where `<socket>` is the name of the
 tmux server's socket (`default`, or the `-L` name), because pane ids restart at `%0` on every server. `start` registers the agent with no
@@ -179,15 +183,16 @@ one-line-per-window layout. Drag the sidebar's border to resize it; the width is
 ![The compact layout, one line per window](docs/images/sidebar-compact.png)
 
 **Cards.** The state glyph is `●` working (a spinner while it runs), `◆` waiting for you, `✔` done, `○` unknown, with the time in that
-state. A Claude Code, Codex or Cursor card adds a row with what the agent is doing right now (`✎ Edit rail.go`, `$ go test`,
+state. A Claude Code, Codex, Cursor or Vibe card adds a row with what the agent is doing right now (`✎ Edit rail.go`, `$ go test`,
 `thinking`). A waiting agent that has a tool call it has not run yet shows it in yellow as `? ✎ Edit rail.go`: that is a permission
 prompt. On the right of that row is a gauge of the context (`▰▰▰▱▱ 86k`), yellow past 60 percent and red past 85.
 
 - Claude is matched to its window exactly, through `~/.claude/sessions`. A Claude transcript does not say which context window the
   session has, so the gauge measures against 200k, or 1M once a context outgrows that; `set -g @muxrail_ctx_window 1000000` fixes it.
-- Codex reports its window, so its gauge is exact. Cursor records no token counts, so its card has the action and no gauge.
+- Codex and Vibe report their window, so their gauge is exact. Cursor records no token counts, so its card has the action and no gauge.
 - Codex and Cursor do not record which pane they run in, so their card reads the newest transcript of the window's folder from the last
   12 hours. That is wrong only when two sessions of one agent share a folder.
+- Vibe is matched to its window exactly: the process that holds a session's lock runs on the window's terminal.
 - Other agents (Gemini, agy) show their logo and state but neither row yet. A process that looks like an agent but is not recognised
   gets a locomotive.
 

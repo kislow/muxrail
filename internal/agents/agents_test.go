@@ -2,6 +2,8 @@ package agents
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -21,6 +23,9 @@ func TestClassify(t *testing.T) {
 		{"codex", "codex", "codex", Codex},
 		{"codex via node wrapper path in args", "/Users/jordan/.n", "/Users/jordan/.nvm/bin/codex --full-auto", Codex},
 		{"agy is gemini", "agy", "agy", Gemini},
+		{"vibe launcher", "vibe", "vibe", Vibe},
+		{"vibe-rs by its path in args", "/Users/jordan/.local/", "/Users/jordan/.local/share/uv/tools/mistral-vibe/vibe/_bin/vibe-rs", Vibe},
+		{"vibe app server is not the foreground agent", "vibe-app-server", "vibe-app-server", ""},
 		{"gemini", "gemini", "gemini -m x", Gemini},
 		{"cursor agent through node", "node", "agent /Users/x/cursor-agent/versions/1/index.js", Cursor},
 		{"cursor-agent through node", "node", "cursor-agent /x/index.js --print", Cursor},
@@ -47,20 +52,32 @@ func TestIsVersion(t *testing.T) {
 	}
 }
 
-const psSample = `ttys001 Ss+  -zsh                /bin/zsh -l
-ttys002 S+   claude              claude --continue
-ttys003 S+   node                node /x/cursor-agent/index.js
-ttys003 S+   agent               agent /x/cursor-agent/index.js
-ttys004 S    codex               codex
-ttys005 R+   /Users/jordan/.local/ /Users/jordan/.local/share/claude/versions/2.1.319 --x
-?? Ss   /usr/sbin/syslogd        /usr/sbin/syslogd
-ttys006 S+   node                node server.js
+const psSample = `  101 ttys001 Ss+  -zsh                /bin/zsh -l
+  102 ttys002 S+   claude              claude --continue
+  103 ttys003 S+   node                node /x/cursor-agent/index.js
+  104 ttys003 S+   agent               agent /x/cursor-agent/index.js
+  105 ttys004 S    codex               codex
+  106 ttys005 R+   /Users/jordan/.local/ /Users/jordan/.local/share/claude/versions/2.1.319 --x
+    1 ??       Ss   /usr/sbin/syslogd        /usr/sbin/syslogd
+  107 ttys006 S+   node                node server.js
+  108 ttys007 R+   /Users/jordan/.local/ /Users/jordan/.local/share/uv/tools/mistral-vibe/lib/python3.13/site-packages/vibe/_bin/vibe-rs
+  109 ttys007 S    vibe-app-server     vibe-app-server
 `
 
 func TestForegroundKinds(t *testing.T) {
-	want := map[string]string{"ttys002": Claude, "ttys003": Cursor, "ttys005": Claude}
+	want := map[string]string{"ttys002": Claude, "ttys003": Cursor, "ttys005": Claude, "ttys007": Vibe}
 	if got := ForegroundKinds(psSample); !reflect.DeepEqual(got, want) {
 		t.Errorf("ForegroundKinds = %v, want %v", got, want)
+	}
+}
+
+func TestTTYsByPIDKeepsEveryProcessOnATerminal(t *testing.T) {
+	got := TTYsByPID(psSample)
+	if got[109] != "ttys007" || got[105] != "ttys004" {
+		t.Errorf("TTYsByPID = %v: background processes on a terminal count too", got)
+	}
+	if _, ok := got[1]; ok {
+		t.Errorf("TTYsByPID = %v: a process with no terminal must be left out", got)
 	}
 }
 
@@ -89,9 +106,10 @@ display-message) echo '`+testSocket+`' ;;
 *) printf '%%1 /dev/ttys002\n%%2 /dev/ttys009\n' ;;
 esac`)
 	testutil.Stub(t, "ps", `cat <<'EOF'
-ttys002 S+ claude claude
-ttys009 S+ -zsh -zsh
+101 ttys002 S+ claude claude
+102 ttys009 S+ -zsh -zsh
 EOF`)
+	t.Setenv("VIBE_HOME", t.TempDir())
 	return serverDir(t, testSocket)
 }
 
@@ -231,5 +249,42 @@ func TestLoadReportsTmuxFailure(t *testing.T) {
 	testutil.Stub(t, "tmux", `exit 1`)
 	if _, err := Load(context.Background()); err == nil {
 		t.Error("want an error when tmux fails and there is no cache")
+	}
+}
+
+func TestLoadGivesAVibePaneItsSessionAndState(t *testing.T) {
+	testutil.IsolatedTmp(t)
+	testutil.NoTmux(t)
+	testutil.Stub(t, "tmux", `case "$1" in
+display-message) echo '`+testSocket+`' ;;
+*) printf '%%4 /dev/ttys004\n' ;;
+esac`)
+	testutil.Stub(t, "ps", `cat <<'EOF'
+201 ttys004 R+ /Users/jordan/.local/ /Users/jordan/.local/share/uv/tools/mistral-vibe/vibe/_bin/vibe-rs
+202 ttys004 S vibe-app-server vibe-app-server
+203 ttys009 S vibe-app-server vibe-app-server
+EOF`)
+	sessions := filepath.Join(t.TempDir(), "logs", "session")
+	t.Setenv("VIBE_HOME", filepath.Dir(filepath.Dir(sessions)))
+	files := map[string]string{
+		filepath.Join(sessions, "active", "s1.lock.json"):                             `{"process_id":202,"session_id":"s1"}`,
+		filepath.Join(sessions, "active", "old.lock.json"):                            `{"process_id":203,"session_id":"old"}`, // not on any pane
+		filepath.Join(sessions, "unified", "s1", "journal", "0000000000000001.jsonl"): `{"type":"projection_delta","payload":{"delta":[{"op":"set_envelope","state":{"activeCallbacks":[],"latestTurn":{"startedAt":1700000000000},"session":{"status":{"type":"running"}}}}]}}` + "\n",
+	}
+	for path, body := range files {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	snap, err := Load(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Snapshot{"%4": {Kind: Vibe, Status: "working", Since: 1700000000, Session: "s1"}}
+	if !reflect.DeepEqual(snap, want) {
+		t.Errorf("snapshot = %+v, want %+v", snap["%4"], want["%4"])
 	}
 }

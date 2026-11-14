@@ -69,6 +69,14 @@ func TestDescribe(t *testing.T) {
 		{"Agent", map[string]any{"description": "review the diff"}, "◈ Agent review the diff"},
 		{"mcp__newrelic__execute_nrql_query", nil, "⚙ execute_nrql_query"},
 		{"TodoWrite", nil, "⚙ TodoWrite"},
+		{"file_system.bash", map[string]any{"command": "ls -la\nmore"}, "$ ls -la"},
+		{"process.start", map[string]any{"command": "make dev"}, "$ make dev"},
+		{"file_system.read_file", map[string]any{"path": "/x/a.txt"}, "◇ Read a.txt"},
+		{"file_system.edit", map[string]any{"file_path": "/x/y/z.go"}, "✎ Edit z.go"},
+		{"file_system.write_file", map[string]any{"path": "/x/b.txt"}, "✎ Write b.txt"},
+		{"vibe.todo", nil, "☰ plan"},
+		{"ui.ask_user_question", nil, "☰ question"},
+		{"mcp_ki_kb.search", map[string]any{"query": "kazl"}, "⚙ search"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.tool+" "+tt.want, func(t *testing.T) {

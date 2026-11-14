@@ -52,7 +52,7 @@ func stubTmux(t *testing.T, listOutput, paneTTYs string) {
 display-message) echo /tmp/tmux-501/default ;;
 list-panes) if [ "$2" = "-a" ]; then printf '%s\n' '`+paneTTYs+`'; else cat '`+filepath.Join(dir, "list")+`'; fi ;;
 esac`)
-	testutil.Stub(t, "ps", `echo "ttys002 S+ claude claude"`)
+	testutil.Stub(t, "ps", `echo "101 ttys002 S+ claude claude"`)
 	writeAgentState(t, "3", "working", 1700000000)
 }
 
@@ -195,7 +195,7 @@ func TestTabKind(t *testing.T) {
 	testutil.NoTmux(t)
 	testutil.Stub(t, "tmux", `if [ "$2" = "-a" ]; then echo '%2 /dev/ttys002'; exit 0; fi
 printf '%%1 1  zsh\n%%2 0  claude\n%%9 0 1 muxrail\n'`)
-	testutil.Stub(t, "ps", `echo "ttys002 S+ claude claude"`)
+	testutil.Stub(t, "ps", `echo "101 ttys002 S+ claude claude"`)
 	tab, ok, err := TabOf(context.Background(), "@1")
 	if err != nil || !ok || tab.Kind != "claude" || tab.Command != "claude" {
 		t.Errorf("TabOf = %+v, %v, %v; want the agent pane to beat the active shell", tab, ok, err)
@@ -208,7 +208,7 @@ func TestTabOfCarriesTheAgentState(t *testing.T) {
 	testutil.Stub(t, "tmux", `if [ "$1" = display-message ]; then echo /tmp/tmux-501/default; exit 0; fi
 if [ "$2" = "-a" ]; then echo '%2 /dev/ttys002'; exit 0; fi
 printf '%%2 1  claude\n'`)
-	testutil.Stub(t, "ps", `echo "ttys002 S+ claude claude"`)
+	testutil.Stub(t, "ps", `echo "101 ttys002 S+ claude claude"`)
 	writeAgentState(t, "2", "waiting", 1700000000)
 	tab, ok, err := TabOf(context.Background(), "@1")
 	if err != nil || !ok || tab.Status != "waiting" || tab.Since != 1700000000 {
@@ -229,6 +229,7 @@ printf '%%9 1 1 muxrail\n'`)
 
 func TestAttachActivity(t *testing.T) {
 	home := t.TempDir()
+	t.Setenv("VIBE_HOME", "")
 	write := func(path, body string) {
 		t.Helper()
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -241,10 +242,14 @@ func TestAttachActivity(t *testing.T) {
 	write(filepath.Join(home, ".claude", "sessions", "1.json"), `{"sessionId":"abc","tmux":"main:@1.%3","startedAt":1}`)
 	write(filepath.Join(home, ".claude", "projects", "-p", "abc.jsonl"),
 		`{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Edit","input":{"file_path":"/x/a.go"}}],"usage":{"input_tokens":5,"cache_read_input_tokens":1000}}}`+"\n")
+	write(filepath.Join(home, ".vibe", "logs", "session", "unified", "v1", "journal", "0000000000000001.jsonl"),
+		`{"type":"projection_delta","payload":{"delta":[{"op":"set_envelope","state":{"latestTurn":{"startedAt":1700000000000},"session":{"status":{"type":"running"},"contextUsage":{"totalTokens":4000}}}}]}}`+"\n")
 	wins := []*Win{
 		{ID: "@1", Pane: "%3", Kind: "claude"},
 		{ID: "@2", Pane: "%4", Kind: "claude"},
 		{ID: "@1", Pane: "%3", Kind: "codex"},
+		{ID: "@5", Pane: "%9", Kind: "vibe", Session: "v1", Status: "done", Since: 1},
+		{ID: "@6", Pane: "%10", Kind: "vibe"},
 	}
 	if err := AttachActivity(home, wins, time.Now()); err != nil {
 		t.Fatal(err)
@@ -257,6 +262,12 @@ func TestAttachActivity(t *testing.T) {
 	}
 	if wins[2].Activity != nil {
 		t.Errorf("only Claude windows read a transcript, got %+v", wins[2].Activity)
+	}
+	if v := wins[3]; v.Activity == nil || v.Activity.Context != 4000 || v.Status != "working" || v.Since != 1700000000 {
+		t.Errorf("vibe window = status %q since %v, Activity %+v; want its store's state over the snapshot's", v.Status, v.Since, v.Activity)
+	}
+	if wins[4].Activity != nil {
+		t.Errorf("a vibe pane whose session was not found got %+v", wins[4].Activity)
 	}
 }
 

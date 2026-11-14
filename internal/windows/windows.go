@@ -29,8 +29,10 @@ type Win struct {
 	Title   string
 	Kind    string
 	Since   float64
+	// Session is the agent's session id where process detection finds it (Vibe); empty otherwise.
+	Session string
 	Git     *gitinfo.Info
-	// Activity is what the agent is doing right now; nil unless it is a Claude session found by its pane.
+	// Activity is what the agent is doing right now; nil unless its session was found.
 	Activity *activity.Info
 }
 
@@ -78,7 +80,7 @@ func parseLine(line string, snap agents.Snapshot) (win *Win, sidebar bool, rank 
 	}
 	win = &Win{ID: f[0], Pane: f[3], Index: index, Active: f[2] == "1", Command: f[6], Path: f[7], Name: f[8], Title: f[9]}
 	if info := snap[f[3]]; info != nil {
-		win.Kind, win.Since = info.Kind, info.Since
+		win.Kind, win.Since, win.Session = info.Kind, info.Since, info.Session
 		if info.Status != "" {
 			win.Status = info.Status
 		}
@@ -145,12 +147,16 @@ func AttachActivity(home string, wins []*Win, now time.Time) error {
 			continue
 		}
 		w.Activity = info
+		if info != nil && info.Status != "" { // fresher than the shared snapshot, which is rebuilt every few seconds
+			w.Status, w.Since = info.Status, info.Since
+		}
 	}
 	return errors.Join(errs...)
 }
 
-// activityOf finds the window's transcript. Claude records its tmux pane, so its session is exact; Codex and Cursor
-// do not, so the newest recent transcript of the window's folder stands in.
+// activityOf finds the window's transcript. Claude records its tmux pane and Vibe's session was matched to the pane by
+// its process, so theirs are exact; Codex and Cursor record neither, so the newest recent transcript of the window's
+// folder stands in.
 func activityOf(home string, w *Win, now time.Time) (*activity.Info, error) {
 	switch w.Kind {
 	case agents.Claude:
@@ -164,6 +170,10 @@ func activityOf(home string, w *Win, now time.Time) (*activity.Info, error) {
 	case agents.Cursor:
 		if path := activity.CursorTranscript(home, w.Path, now); path != "" {
 			return activity.ReadCursor(path)
+		}
+	case agents.Vibe:
+		if w.Session != "" {
+			return activity.ReadVibe(home, w.Session)
 		}
 	}
 	return nil, nil
