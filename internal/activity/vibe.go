@@ -64,6 +64,10 @@ func ReadVibe(home, id string) (*Info, error) {
 		info := parseVibe(vibeSnapshot(dir), data)
 		if info != nil {
 			info.Window = window
+			if info.Cwd == "" {
+				info.Cwd = vibeHistoryCwd(dir)
+			}
+			info.Cwd = expandHome(home, info.Cwd)
 		}
 		return info
 	}
@@ -77,14 +81,11 @@ func ReadVibe(home, id string) (*Info, error) {
 // vibeSnapshot is the session state in the current generation, which the newest journal continues from; nil when there
 // is none yet.
 func vibeSnapshot(dir string) *vibeEnvelope {
-	var current struct {
-		Generation string `json:"generation"`
-	}
-	data, err := os.ReadFile(filepath.Join(dir, "CURRENT"))
-	if err != nil || json.Unmarshal(data, &current) != nil || !validVibeID(current.Generation) {
+	gen := vibeGeneration(dir)
+	if gen == "" {
 		return nil
 	}
-	data, err = os.ReadFile(filepath.Join(dir, "generations", current.Generation, "projection-state.json"))
+	data, err := os.ReadFile(filepath.Join(gen, "projection-state.json"))
 	if err != nil {
 		return nil
 	}
@@ -95,6 +96,124 @@ func vibeSnapshot(dir string) *vibeEnvelope {
 		return nil
 	}
 	return state.Snapshot
+}
+
+// vibeGeneration is the folder of the session's current generation; empty when there is none yet.
+func vibeGeneration(dir string) string {
+	var current struct {
+		Generation string `json:"generation"`
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "CURRENT"))
+	if err != nil || json.Unmarshal(data, &current) != nil || !validVibeID(current.Generation) {
+		return ""
+	}
+	return filepath.Join(dir, "generations", current.Generation)
+}
+
+// vibeHistoryChunks bounds how far back the history is searched for a folder: a chunk holds a couple of dozen entries.
+const vibeHistoryChunks = 4
+
+// vibeChunkCwds holds the folder each history chunk names. A chunk is named after the hash of its content and never
+// changes, so what it says is read once.
+var vibeChunkCwds memo[string]
+
+// vibeHistoryCwd is the folder of the newest shell command in the session's history that changes into one, for when
+// the journal since the last snapshot has none; empty when the last few chunks have none either.
+func vibeHistoryCwd(dir string) string {
+	gen := vibeGeneration(dir)
+	if gen == "" {
+		return ""
+	}
+	var manifest struct {
+		ProjectionState struct {
+			Chunks []string `json:"chunks"`
+		} `json:"projection_state"`
+	}
+	data, err := os.ReadFile(filepath.Join(gen, "manifest.json"))
+	if err != nil || json.Unmarshal(data, &manifest) != nil {
+		return ""
+	}
+	chunks := manifest.ProjectionState.Chunks // oldest first
+	for i := len(chunks) - 1; i >= max(len(chunks)-vibeHistoryChunks, 0); i-- {
+		if cwd := vibeChunkCwd(dir, chunks[i]); cwd != "" {
+			return cwd
+		}
+	}
+	return ""
+}
+
+func vibeChunkCwd(dir, chunk string) string {
+	if !validVibeID(chunk) {
+		return ""
+	}
+	path := filepath.Join(dir, "chunks", chunk+".json")
+	if cwd, ok := vibeChunkCwds.get(path); ok {
+		return cwd
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	var entries []struct {
+		Type   string   `json:"type"`
+		Detail vibeTool `json:"detail"`
+	}
+	if json.Unmarshal(data, &entries) != nil {
+		return "" // not remembered: some chunks hold other records, and those are not worth reading again either way
+	}
+	var cwd string
+	for _, e := range slices.Backward(entries) {
+		if e.Type == "effect" {
+			if cwd = cdTarget(e.Detail); cwd != "" {
+				break
+			}
+		}
+	}
+	vibeChunkCwds.put(path, cwd)
+	return cwd
+}
+
+// cdTarget is the folder a shell command changes into first (`cd "/r/app" && go test`). Vibe runs every command from
+// the session's folder, so the agent names the repo it works on this way; only an absolute or ~ path counts.
+func cdTarget(t vibeTool) string {
+	if b := vibeBuiltin(t.ToolName); b != "bash" && b != "start" {
+		return ""
+	}
+	command, _ := t.Input["command"].(string)
+	rest, ok := strings.CutPrefix(strings.TrimSpace(command), "cd ")
+	if !ok {
+		return ""
+	}
+	rest = strings.TrimLeft(rest, " ")
+	var path string
+	if rest != "" && (rest[0] == '"' || rest[0] == '\'') {
+		end := strings.IndexByte(rest[1:], rest[0])
+		if end < 0 {
+			return ""
+		}
+		path = rest[1 : end+1]
+	} else {
+		end := strings.IndexAny(rest, " ;&|\n")
+		if end < 0 {
+			end = len(rest)
+		}
+		path = rest[:end]
+	}
+	if !filepath.IsAbs(path) && path != "~" && !strings.HasPrefix(path, "~/") {
+		return ""
+	}
+	return path
+}
+
+// expandHome turns a leading ~ into home and cleans the path.
+func expandHome(home, path string) string {
+	if path == "" {
+		return ""
+	}
+	if rest, ok := strings.CutPrefix(path, "~"); ok {
+		path = home + rest
+	}
+	return filepath.Clean(path)
 }
 
 // vibeIndexes holds the context windows of every session listed in the session index, read again only after it changed.
@@ -212,7 +331,7 @@ func parseVibe(snap *vibeEnvelope, data []byte) *Info {
 			open[cb.CallbackID], order = cb, append(order, cb.CallbackID)
 		}
 	}
-	var action string
+	var action, cwd string
 	for line := range bytes.SplitSeq(data, []byte("\n")) {
 		var r vibeRecord
 		if len(line) == 0 || json.Unmarshal(line, &r) != nil {
@@ -225,6 +344,11 @@ func parseVibe(snap *vibeEnvelope, data []byte) *Info {
 			delete(open, r.Payload.CallbackID)
 		case "projection_delta":
 			for _, d := range r.Payload.Delta {
+				if e := d.Entry; e != nil && e.Type == "effect" {
+					if c := cdTarget(e.Detail); c != "" {
+						cwd = c
+					}
+				}
 				switch e := d.Entry; {
 				case d.Op == "set_envelope" && d.State != nil:
 					env = d.State
@@ -242,7 +366,7 @@ func parseVibe(snap *vibeEnvelope, data []byte) *Info {
 	if env == nil {
 		return nil
 	}
-	info := &Info{Action: action}
+	info := &Info{Action: action, Cwd: cwd}
 	if env.Session.ContextUsage != nil {
 		info.Context = env.Session.ContextUsage.TotalTokens
 	}

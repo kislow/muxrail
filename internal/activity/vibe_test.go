@@ -140,3 +140,68 @@ func mustUnmarshal(t *testing.T, data string, v any) {
 		t.Fatal(err)
 	}
 }
+
+func TestCdTarget(t *testing.T) {
+	bash := func(command string) vibeTool {
+		return vibeTool{ToolName: "file_system.bash", Input: map[string]any{"command": command}}
+	}
+	tests := []struct {
+		name string
+		tool vibeTool
+		want string
+	}{
+		{"double quoted", bash(`cd "/r/my app" && go test`), "/r/my app"},
+		{"single quoted", bash(`cd '/r/app'; ls`), "/r/app"},
+		{"bare then &&", bash("cd /r/app&&ls"), "/r/app"},
+		{"bare alone", bash("  cd /r/app"), "/r/app"},
+		{"home", bash("cd ~/src/x && make"), "~/src/x"},
+		{"process start", vibeTool{ToolName: "process.start", Input: map[string]any{"command": "cd /r/svc && make dev"}}, "/r/svc"},
+		{"relative is ignored", bash("cd apps/web && ls"), ""},
+		{"no cd", bash("python3 - <<'EOF'"), ""},
+		{"cd later in the command", bash("ls && cd /r/app"), ""},
+		{"unterminated quote", bash(`cd "/r/app && ls`), ""},
+		{"not a shell tool", vibeTool{ToolName: "file_system.read_file", Input: map[string]any{"command": "cd /r/app"}}, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := cdTarget(tt.tool); got != tt.want {
+				t.Errorf("cdTarget = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestReadVibeFollowsTheFolderOfTheLastCd(t *testing.T) {
+	t.Setenv("VIBE_HOME", "")
+	cdBash := `{"type":"projection_delta","payload":{"delta":[{"op":"append_entry","entry":{"type":"effect","detail":{"kind":"tool","toolName":"file_system.bash","input":{"command":"cd \"/r/live\" && ls"}},"state":{"status":"running"}}}]}}`
+	home := t.TempDir()
+	vibeStore(t, home, "s1", "1", lines(vibeRunning, cdBash))
+	if info, err := ReadVibe(home, "s1"); err != nil || info == nil || info.Cwd != "/r/live" {
+		t.Errorf("ReadVibe = %+v, %v; want the journal's cd", info, err)
+	}
+
+	// Right after a turn the journal is empty; the folder comes from the history chunks, newest first.
+	quiet := t.TempDir()
+	vibeStore(t, quiet, "s2", "2", nil)
+	dir := filepath.Join(quiet, ".vibe", "logs", "session", "unified", "s2")
+	effect := func(command string) string {
+		return `{"type":"effect","detail":{"toolName":"file_system.bash","input":{"command":"` + command + `"}}}`
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "chunks"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	files := map[string]string{
+		filepath.Join(dir, "generations", "0000000000000007", "manifest.json"): `{"projection_state":{"chunks":["c1","c2","c3"]}}`,
+		filepath.Join(dir, "chunks", "c1.json"):                                `[` + effect(`cd /r/old && ls`) + `]`,
+		filepath.Join(dir, "chunks", "c2.json"):                                `[` + effect(`cd ~/src/new && ls`) + `,` + effect(`python3 x.py`) + `]`,
+		filepath.Join(dir, "chunks", "c3.json"):                                `[{"type":"message","role":"assistant"}]`,
+	}
+	for path, body := range files {
+		if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if info, err := ReadVibe(quiet, "s2"); err != nil || info == nil || info.Cwd != filepath.Join(quiet, "src", "new") {
+		t.Errorf("ReadVibe = %+v, %v; want the newest cd in the history, with ~ expanded", info, err)
+	}
+}
