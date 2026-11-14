@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/kislow/muxrail/compare/v0.7.0...v0.8.0) (2026-11-14)
+
+
+### Features
+
+* show Mistral Vibe windows like the other agents ([#15](https://github.com/kislow/muxrail/issues/15)) ([965a41a](https://github.com/kislow/muxrail/commit/965a41a9d2b5f3bfbbce343f85f032152f316f7a))
+
 ## [0.7.0](https://github.com/kislow/muxrail/compare/v0.6.2...v0.7.0) (2026-11-11)
 
 
