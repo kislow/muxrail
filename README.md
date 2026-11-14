@@ -193,6 +193,8 @@ prompt. On the right of that row is a gauge of the context (`▰▰▰▱▱ 86k
 - Codex and Cursor do not record which pane they run in, so their card reads the newest transcript of the window's folder from the last
   12 hours. That is wrong only when two sessions of one agent share a folder.
 - Vibe is matched to its window exactly: the process that holds a session's lock runs on the window's terminal.
+- Vibe runs every command from the folder it started in and reaches a repo with `cd <path> && …`, so its card's folder and
+  branch follow the newest command that starts with an absolute `cd`.
 - Other agents (Gemini, agy) show their logo and state but neither row yet. A process that looks like an agent but is not recognised
   gets a locomotive.
 
